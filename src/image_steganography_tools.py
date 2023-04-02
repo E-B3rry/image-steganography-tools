@@ -32,7 +32,8 @@ if __name__ == "__main__":
 
     # Create a pattern
     test_pattern = Pattern(
-        channels="RA",
+        channels="A",
+        redundancy=3,
     )
 
     if choice == "e":

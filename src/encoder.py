@@ -43,6 +43,9 @@ class Encoder(BaseSteganography):
         data_bits = ''.join(format(ord(char), '08b') for char in data)
         data_bits += '00000000'  # Add 8 null bits as a delimiter
 
+        # Add the redundancy
+        data_bits = ''.join([data_bits[i] * redundancy for i in range(len(data_bits))])
+
         bit_index = 0
         encoded_pixels = []
         for pixel in pixels:
@@ -50,13 +53,13 @@ class Encoder(BaseSteganography):
             for channel_index, value in enumerate(pixel):
                 channel = self.image.mode[channel_index % len(self.image.mode)]
                 if channel in channels and bit_index < len(data_bits):
-                    for _ in range(redundancy):
-                        bits_to_replace = bit_frequency
-                        value_bits = format(value, '08b')
-                        new_value_bits = value_bits[:-bits_to_replace] + data_bits[
-                                                                         bit_index:bit_index + bits_to_replace]
-                        new_value = int(new_value_bits, 2)
-                        bit_index += bits_to_replace
+                    bits_to_replace = bit_frequency
+                    value_bits = format(value, '08b')
+                    new_value_bits = value_bits[:-bits_to_replace] + data_bits[bit_index:bit_index + bits_to_replace]
+                    new_value = int(new_value_bits, 2)
+
+                    bit_index += bits_to_replace
+
                     new_pixel.append(new_value)
                 else:
                     new_pixel.append(value)

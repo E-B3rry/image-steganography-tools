@@ -39,7 +39,12 @@ class Decoder(BaseSteganography):
 
         data = ''
         for i in range(0, len(extracted_bits), 8 * redundancy):
-            byte = extracted_bits[i:i + 8]
+            byte = extracted_bits[i:i + 8 * redundancy]
+
+            # TODO:Really implement redundancy check in Decoder
+            # Reduce redundancy
+            byte = byte[::redundancy]
+
             if byte == '00000000':  # Stop at the null delimiter
                 break
             data += chr(int(byte, 2))
