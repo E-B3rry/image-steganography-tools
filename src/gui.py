@@ -1,9 +1,6 @@
 from PIL import Image, ImageTk
 import tkinter as tk
-
-
-x = 0
-y = 0
+from tkinter import ttk
 
 
 def frames(x: tk.Tk):
@@ -34,26 +31,42 @@ def frames(x: tk.Tk):
     frame7.grid(row=7, column=0)
 
 
-def show_img():
-    """Cette fonction permet d'afficher l'image coddée.
-    :parent est la fenêtre Tkinter,
-    :width et height sont des entier."""
-    l = img.width  # on récupère la largeur de l'image
-    h = img.height  # on récupère la hauteur de l'image
-    img_temp = Image.open('../img/chat.pgm')
-    img_tk = ImageTk.PhotoImage(img)
-    canvas = tk.Canvas(frame6, width=l, height=h, bg='grey')
-    canvas.create_image(l, h, image=img_tk)
-    canvas.grid(padx=10, row=0, column=3)
-
-
-def fp():
-    """
-    Cette fonction permet d'ouvrir la fenêtre principale.
+def code_fen():
+    """Cette fonction permet d'ouvrir la fenêtre principale.
     :current est un dictionnaire,
-    :buttons est un booléen.
-    """
-    global Main_Fen
+    :buttons est un booléen."""
+    Main_Fen = tk.Tk()
+    Main_Fen.geometry("800x600")
+    Main_Fen.resizable(False, False)
+    Main_Fen.title("Codator 3000 v1.0.0a")
+    # Main_Fen.iconbitmap(logo)
+
+    frames(Main_Fen)
+    phrase = tk.StringVar()
+
+    label1 = tk.Label(frame1, justify="center", text="Codator 3000", font=("Comic sans MS", 35), fg='red')
+    label1.grid(pady=10, padx='250')
+    label2 = tk.Label(frame2, justify="center", text="Entrez une phrase à coder:", font=("Comic sans MS", 20), fg='blue')
+    label2.grid(pady=10, padx='200')
+
+    txt = tk.Entry(frame3, textvariable=phrase)
+    txt.focus_set()
+    txt.grid(pady=10)
+    menu = ttk.Combobox(frame3, values=["1", "2", "3"])
+    menu.grid(row=2, pady=10, padx='200')
+    bouton1 = tk.Button(frame4, text="Coder", font=("Burbank Big Cd bd", 16), fg='Orange', cursor='heart')
+    bouton1.grid()
+    bouton2 = tk.Button(frame5, text="Décoder une image", font=("Burbank Big Cd bd", 16), fg='Orange', cursor='heart',
+                        command=lambda: change_fen(decode_fen, Main_Fen))
+    bouton2.grid(pady=10)
+
+    Main_Fen.mainloop()
+
+
+def decode_fen():
+    """Cette fonction permet d'ouvrir la fenêtre principale.
+    :current est un dictionnaire,
+    :buttons est un booléen."""
 
     Main_Fen = tk.Tk()
     Main_Fen.geometry("800x600")
@@ -66,19 +79,25 @@ def fp():
 
     label1 = tk.Label(frame1, justify="center", text="Codator 3000", font=("Comic sans MS", 35), fg='red')
     label1.grid(pady=10, padx='250')
-    label2 = tk.Label(frame2, justify="center", text="entrez une phrase à coder:", font=("Comic sans MS", 20), fg='blue')
-    label2.grid(pady=10, padx='250')
+    label2 = tk.Label(frame2, justify="center", text="Sélectionnez une image à décoder:", font=("Comic sans MS", 20), fg='blue')
+    label2.grid(pady=10, padx='180')
 
-    txt = tk.Entry(frame3, textvariable=phrase)
+    txt = tk.Entry(frame3, )
     txt.focus_set()
     txt.pack(pady=10)
-    bouton1 = tk.Button(frame4, text="Coder", font=("Burbank Big Cd bd", 16), fg='Orange', cursor='heart', command=show_img)
+    bouton1 = tk.Button(frame4, text="Décoder", font=("Burbank Big Cd bd", 16), fg='Orange', cursor='heart')
     bouton1.grid()
-    bouton2 = tk.Button(frame5, text="test", font=("Burbank Big Cd bd", 16), fg='Orange', cursor='heart')
+    bouton2 = tk.Button(frame5, text="Décoder une image", font=("Burbank Big Cd bd", 16), fg='Orange', cursor='heart',
+                        command=lambda: change_fen(code_fen, Main_Fen))
     bouton2.grid(pady=10)
 
     Main_Fen.mainloop()
 
 
+def change_fen(new: callable, current: tk.Tk) -> None:
+    current.destroy()
+    new()
+
+
 if __name__ == "__main__":
-    fp()
+    code_fen()

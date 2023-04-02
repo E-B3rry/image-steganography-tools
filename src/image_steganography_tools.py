@@ -2,7 +2,11 @@
 from pprint import pprint
 
 # Project modules
-from utils import load_image, get_image_bytes_size
+from encoder import Encoder
+from decoder import Decoder
+from pattern import Pattern
+from utils import get_image_bytes_size, get_image_pixels
+from log_config import configure_logging
 
 # External modules
 import PIL
@@ -17,14 +21,41 @@ It currently supports PGM, PNG and Bitmap image formats and allows encoding of t
 """
 
 
+configure_logging()
+
+
 # Direct testing
 if __name__ == "__main__":
     print("IST v1.0.0a")
 
-    # Load an image
-    image1 = load_image("../img/image1-transparent.png")
-    image2 = load_image("../img/chat.pgm")
+    choice = input("Encode or decode? [e/d] ")
 
-    # Get the size of the image in bytes
-    image_size = get_image_bytes_size(image2)
-    pprint(image_size)
+    # Create a pattern
+    test_pattern = Pattern(
+        channels="RA",
+    )
+
+    if choice == "e":
+        # Create an encoder class
+        test_encoder = Encoder()
+
+        # Encode a message
+        test_encoder.encode(
+            "../img/image1-transparent.png",
+            "I'm a fucking blobfish ma gueule",
+            test_pattern,
+            "../img/output/test-1.png",
+        )
+    elif choice == "d":
+        # Create a decoder class
+        test_decoder = Decoder()
+
+        # Decode the message from selected file
+        data = test_decoder.decode(
+            "../img/output/test-1.png",
+            test_pattern,
+        )
+
+        print(data)
+    else:
+        print("Choice not valid")
