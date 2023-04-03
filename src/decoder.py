@@ -1,10 +1,10 @@
 # Internal modules
-from log_config import get_logger
 
 # Project modules
-from base import BaseSteganography
-from pattern import Pattern
-from utils import get_image_pixels
+from src.base import BaseSteganography
+from src.pattern import Pattern
+from src.utils import get_image_pixels
+from log_config import get_logger
 
 # External modules
 
@@ -28,20 +28,26 @@ class Decoder(BaseSteganography):
         bit_frequency = pattern['bit_frequency']
         redundancy = pattern['redundancy']
         hash_check = pattern['hash_check']
+        byte_spacing = pattern['byte_spacing']
 
         extracted_bits = ''
-        for pixel in pixels:
+        channel_counters = {channel: 0 for channel in self.image.mode}
+        for pixel_index, pixel in enumerate(pixels):
             for channel_index, value in enumerate(pixel):
                 channel = self.image.mode[channel_index]
+
                 if channel in channels:
-                    value_bits = format(value, '08b')
-                    extracted_bits += value_bits[-bit_frequency:]
+                    if channel_counters[channel] % byte_spacing == 0:
+                        value_bits = format(value, '08b')
+                        extracted_bits += value_bits[-bit_frequency:]
+
+                    channel_counters[channel] += 1
 
         data = ''
         for i in range(0, len(extracted_bits), 8 * redundancy):
             byte = extracted_bits[i:i + 8 * redundancy]
 
-            # TODO:Really implement redundancy check in Decoder
+            # TODO: Really implement redundancy check in Decoder
             # Reduce redundancy
             byte = byte[::redundancy]
 
@@ -54,6 +60,9 @@ class Decoder(BaseSteganography):
             if Pattern.compute_hash(original_data) != data_hash:
                 raise ValueError("Data integrity check failed")
             return original_data
+
+        self.logger.debug(f"Extracted bits: {extracted_bits}")
+        self.logger.debug(f"Data: {data}")
 
         return data
 

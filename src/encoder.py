@@ -1,10 +1,10 @@
 # Internal modules
-from base import BaseSteganography
-from pattern import Pattern
-from utils import get_image_pixels, create_image_from_pixels
 
 # Project modules
-from log_config import get_logger
+from src.base import BaseSteganography
+from src.pattern import Pattern
+from src.utils import get_image_pixels, create_image_from_pixels
+from src.log_config import get_logger
 
 # External modules
 from PIL import Image
@@ -12,7 +12,6 @@ from PIL import Image
 """
 Encoder module of the Image Steganography Tools library.
 """
-
 
 logger = get_logger("encoder")
 
@@ -25,9 +24,14 @@ class Encoder(BaseSteganography):
         self.pattern = pattern.generate_pattern()
 
     def validate_data(self, data: str) -> bool:
-        required_bits = len(data) * 8
-        available_bits = self.image.width * self.image.height * self.pattern['bit_frequency']
+        required_bits = len(data) * 8 * self.pattern['redundancy'] * self.pattern['byte_spacing']
+        available_bits = self.image.width * self.image.height * \
+                         self.pattern['bit_frequency'] * len(self.pattern['channels'])
         return required_bits <= available_bits
+
+    def available_bytes_for_data(self) -> int:
+        return self.image.width * self.image.height * self.pattern['bit_frequency'] * len(self.pattern['channels']) / \
+            self.pattern['redundancy'] / self.pattern['byte_spacing'] // 8
 
     def apply_pattern(self, pixels: list[tuple[int, ...], ...], data: str) -> list[tuple[int, ...]]:
         pattern = self.pattern
@@ -35,6 +39,7 @@ class Encoder(BaseSteganography):
         bit_frequency = pattern['bit_frequency']
         redundancy = pattern['redundancy']
         hash_check = pattern['hash_check']
+        byte_spacing = pattern['byte_spacing']
 
         if hash_check:
             data_hash = Pattern.compute_hash(data)
@@ -47,22 +52,31 @@ class Encoder(BaseSteganography):
         data_bits = ''.join([data_bits[i] * redundancy for i in range(len(data_bits))])
 
         bit_index = 0
+        channel_counters = {channel: 0 for channel in self.image.mode}
         encoded_pixels = []
-        for pixel in pixels:
+        for pixel_index, pixel in enumerate(pixels):
             new_pixel = []
             for channel_index, value in enumerate(pixel):
                 channel = self.image.mode[channel_index % len(self.image.mode)]
-                if channel in channels and bit_index < len(data_bits):
-                    bits_to_replace = bit_frequency
-                    value_bits = format(value, '08b')
-                    new_value_bits = value_bits[:-bits_to_replace] + data_bits[bit_index:bit_index + bits_to_replace]
-                    new_value = int(new_value_bits, 2)
 
-                    bit_index += bits_to_replace
+                if channel in channels:
+                    if bit_index < len(data_bits) and channel_counters[channel] % byte_spacing == 0:
+                        # self.logger.debug(f"Modifying pixel {pixel_index}, channel {channel_index} ({channel})")
 
-                    new_pixel.append(new_value)
+                        value_bits = format(value, '08b')
+                        new_value_bits = value_bits[:-bit_frequency] + data_bits[bit_index:bit_index + bit_frequency]
+                        new_value = int(new_value_bits, 2)
+
+                        bit_index += bit_frequency
+
+                        new_pixel.append(new_value)
+                    else:
+                        new_pixel.append(value)
+
+                    channel_counters[channel] += 1
                 else:
                     new_pixel.append(value)
+
             encoded_pixels.append(tuple(new_pixel))
 
         return encoded_pixels

@@ -4,9 +4,9 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 # Project modules
-from exceptions import UnsupportedImageFormatError
-from constants import currently_supported_formats
-from log_config import get_logger
+from src.exceptions import UnsupportedImageFormatError
+from src.constants import currently_supported_formats
+from src.log_config import get_logger
 
 # External modules
 from PIL import Image
@@ -15,19 +15,29 @@ from PIL import Image
 class BaseSteganography(ABC):
     def __init__(self):
         self.pattern = None
-        self.image = None
+        self.image: Image = None
         self.logger = get_logger(self.__class__.__name__)
 
     def load_image(self, file_path: str) -> None:
+        if file_path.split('.')[-1].upper() not in currently_supported_formats:
+            raise UnsupportedImageFormatError()
+
         image = Image.open(file_path)
 
         if image.format not in currently_supported_formats:
+            image.close()
             raise UnsupportedImageFormatError()
 
         self.image = image
         self.logger.info(f"Image loaded from {file_path}")
 
-    def save_image(self, output_path: str, image_format: str = "PNG") -> None:
+    def save_image(self, output_path: str, image_format: Union[str, None] = None) -> None:
+        if image_format is None:
+            image_format = output_path.split('.')[-1].upper()
+
+        if not image_format:
+            raise ValueError("Image format not specified")
+
         if image_format not in currently_supported_formats:
             raise UnsupportedImageFormatError()
 
@@ -41,3 +51,8 @@ class BaseSteganography(ABC):
     @abstractmethod
     def process(self, *args, **kwargs):
         pass
+
+    def __del__(self):
+        if self.image is not None:
+            self.image.close()
+            self.logger.info("Image closed")

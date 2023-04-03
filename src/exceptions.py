@@ -1,5 +1,5 @@
 # Project modules
-from constants import *
+from src.constants import *
 
 """
 ImageSteganographyTools Exception classes

@@ -2,11 +2,11 @@
 from pprint import pprint
 
 # Project modules
-from encoder import Encoder
-from decoder import Decoder
-from pattern import Pattern
-from utils import get_image_bytes_size, get_image_pixels
-from log_config import configure_logging
+from src.encoder import Encoder
+from src.decoder import Decoder
+from src.pattern import Pattern
+from src.utils import get_image_bytes_size, get_image_pixels
+from src.log_config import configure_logging
 
 # External modules
 import PIL
@@ -33,12 +33,22 @@ if __name__ == "__main__":
     # Create a pattern
     test_pattern = Pattern(
         channels="A",
-        redundancy=3,
+        redundancy=1,
+        bit_frequency=1,
+        byte_spacing=2,
+        hash_check=False,
     )
 
     if choice == "e":
         # Create an encoder class
         test_encoder = Encoder()
+
+        # Load the image
+        test_encoder.load_image("../img/image1-transparent.png")
+
+        # Load the pattern
+        test_encoder.load_pattern(test_pattern)
+        print(test_encoder.available_bytes_for_data())
 
         # Encode a message
         test_encoder.encode(

@@ -2,8 +2,7 @@
 from typing import Union
 
 # Project modules
-from constants import *
-from exceptions import UnsupportedImageFormatError
+from src.exceptions import UnsupportedImageFormatError
 
 # External modules
 import PIL
