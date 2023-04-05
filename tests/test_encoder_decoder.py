@@ -33,7 +33,7 @@ def generate_test_patterns():
 class TestEncoderDecoder(unittest.TestCase):
     def test_encode_decode(self):
         test_patterns = generate_test_patterns()
-        data = "Test data"
+        data = "This is a test string with utf-8 characters: ąęćłńóśźż ĄĘĆŁŃÓŚŹŻ 1234567890 !@#$%^&*()_+ -=[]\\;',./{}|:\"<>?`~\n"
 
         for pattern in test_patterns:
             with self.subTest(pattern=pattern.generate_pattern()):

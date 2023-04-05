@@ -37,6 +37,8 @@ if __name__ == "__main__":
         bit_frequency=1,
         byte_spacing=2,
         hash_check=False,
+        compression=True,
+        compression_strength=6,
     )
 
     if choice == "e":
@@ -53,7 +55,7 @@ if __name__ == "__main__":
         # Encode a message
         test_encoder.encode(
             "../img/image1-transparent.png",
-            "I'm a fucking blobfish ma gueule",
+            "I'm a fucking blobfish ma gueule" * 20,
             test_pattern,
             "../img/output/test-1.png",
         )
