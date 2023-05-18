@@ -24,82 +24,98 @@ class Encoder(BaseSteganography):
         self.encoding: str = kwargs.get("encoding", "utf-8")
         self.image: Image = kwargs.get("image", None)
 
+        self.processed_image: Image = None
+
     def load_pattern(self, pattern: Pattern):
         self.pattern = pattern
 
-    def validate_data(self, data: Union[bytes, bytearray]) -> bool:
-        current_pattern = self.pattern.generate_pattern()
+    def unload_processed_image(self) -> None:
+        self._perform_unload_image(self.processed_image)
+        self.processed_image = None
 
-        required_bits = len(data) * 8 * current_pattern["redundancy"] * current_pattern["byte_spacing"]
-        available_bits = self.image.width * self.image.height * current_pattern["bit_frequency"] * len(current_pattern["channels"])
-        return required_bits <= available_bits
+    def _validate_data_after_pattern_applied(self, data: Union[bytes, bytearray]) -> bool:
+        max_size = self.pattern.calculate_max_data_size((self.image.width, self.image.height), self.image.mode)
+        return len(data) <= max_size
 
     def available_bytes_for_data(self) -> int:
-        current_pattern = self.pattern.generate_pattern()
+        return self.pattern.calculate_max_data_size((self.image.width, self.image.height), self.image.mode) or 0
 
-        return self.image.width * self.image.height * current_pattern["bit_frequency"] * len(current_pattern["channels"]) / \
-            current_pattern["redundancy"] / current_pattern["byte_spacing"] // 8
+    def apply_pattern(self, pixels: list[tuple[int, ...], ...], data: bytes) -> list[tuple[int, ...]]:
+        pattern = self.pattern.generate_pattern(self.image.mode)
 
-    def apply_pattern(self, pixels: list[tuple[int, ...], ...], data: str) -> list[tuple[int, ...]]:
-        pattern_data = self.pattern.generate_pattern()
-
-        channels = pattern_data["channels"]
-        bit_frequency = pattern_data["bit_frequency"]
-        redundancy = pattern_data["redundancy"]
-        hash_check = pattern_data["hash_check"]
-        byte_spacing = pattern_data["byte_spacing"]
-        compression_enabled = pattern_data["compression"]
-
-        if hash_check:
-            data_hash = Pattern.compute_hash(data)
+        # Compute hash if enabled
+        if pattern["hash_check"]:
+            data_hash = self.pattern.compute_hash(data)
             data += data_hash
 
-        data = data.encode("utf-8")
+        # Compress if enabled
+        if pattern["compression_enabled"]:
+            data = self.pattern.compress_data(data)
 
-        if compression_enabled:
-            compression_flag = b'0'
+        # Add the redundancy
+        data = self.pattern.apply_redundancy(data)
 
-            compressed_data = self.pattern.compress_data(data)
-            if len(compressed_data) < len(data):
-                self.logger.debug(f"Compression reduced data size, using compressed data ({len(compressed_data)}/{len(data)} bytes).")
-                data = compressed_data
-                compression_flag = b'1'
-            else:
-                self.logger.info(f"Compression did not reduce data size, skipping compression ({len(compressed_data)}/{len(data)} bytes).")
-
-            data = compression_flag + data
-
-        if not self.validate_data(data):
+        if not self._validate_data_after_pattern_applied(data):
             raise ValueError(f"Data size exceeds available capacity ({len(data)}/{self.available_bytes_for_data()} bytes), "
                              f"try using a different pattern or increasing compression rate if possible.")
 
-        data_bits = ''.join(format(byte, '08b') for byte in data)
-        data_bits += "00000000"  # Add 8 null bits as a delimiter
+        header_added_offset = 0
+        # If header is enabled, accordingly generate header
+        if pattern["header_enabled"] and pattern["header_write_data_size"] or pattern["header_write_pattern"]:
+            header = self.pattern.generate_header(len(data))
+            # print(f"Header data: {[int(x) for x in header]}")
 
-        # Add the redundancy
-        data_bits = ''.join([data_bits[i] * redundancy for i in range(len(data_bits))])
+            data_length = int.from_bytes(header[:4], "big")
+            # print(f"Data length: {data_length}")
+
+            if header:
+                old_pixels = pixels
+                pixels, header_added_offset = self.encode_data(pixels, header, pattern["header_channels"], pattern["header_bit_frequency"],
+                                                               pattern["header_byte_spacing"], 0)  # TODO: Add header positioning support
+
+                # print(f"Header data before encoding: {old_pixels[:header_added_offset + 1]}")
+                # print(f"Header data after encoding: {pixels[:header_added_offset + 1]}")
+
+        pixels, _ = self.encode_data(pixels, data, pattern["channels"], pattern["bit_frequency"],
+                                     pattern["byte_spacing"], pattern["offset"] + header_added_offset + 1)
+
+        return pixels
+
+    def encode_data(self, pixels: list[int | tuple[int, ...], ...], data: Union[bytes, bytearray],
+                    channels: str, bit_frequency: int, byte_spacing: int, offset: int = 0) -> (list[int | tuple[int, ...]], int):
+        data_bits = ''.join(format(byte, '08b') for byte in data)
 
         bit_index = 0
         channel_counters = {channel: 0 for channel in self.image.mode}
 
-        encoded_pixels = []
-        for pixel_index, pixel in enumerate(pixels):
+        # If pixels list is not made of tuples but of integers, convert it to tuples
+        if isinstance(pixels[0], int):
+            pixels = [(pixel,) for pixel in pixels]
+
+        last_pixel = 0
+        # print(f"data_bits: {data_bits}")
+        encoded_pixels = pixels[0:max(offset, 0)]
+        for pixel_index, pixel in enumerate(pixels[offset:], start=offset):
             new_pixel = []
+
             for channel_index, value in enumerate(pixel):
                 channel = self.image.mode[channel_index % len(self.image.mode)]
 
-                if channel in channels:
-                    if bit_index < len(data_bits) and channel_counters[channel] % byte_spacing == 0:
-                        # self.logger.debug(f"Modifying pixel {pixel_index}, channel {channel_index} ({channel})")
+                if channel in channels and pixel_index >= offset:
+                    if bit_index < len(data_bits):
+                        if channel_counters[channel] % byte_spacing == 0:
+                            # self.logger.debug(f"Modifying pixel {pixel_index}, channel {channel_index} ({channel})")
 
-                        value_bits = format(value, '08b')
+                            value_bits = format(value, '08b')
 
-                        new_value_bits = value_bits[:-bit_frequency] + data_bits[bit_index:bit_index + bit_frequency]
-                        new_value = int(new_value_bits, 2)
+                            new_value_bits = value_bits[:-bit_frequency] + data_bits[bit_index:bit_index + bit_frequency]
+                            new_value = int(new_value_bits, 2)
 
-                        bit_index += bit_frequency
+                            bit_index += bit_frequency
 
-                        new_pixel.append(new_value)
+                            new_pixel.append(new_value)
+                        else:
+                            new_pixel.append(value)
                     else:
                         new_pixel.append(value)
 
@@ -109,16 +125,56 @@ class Encoder(BaseSteganography):
 
             encoded_pixels.append(tuple(new_pixel))
 
-        return encoded_pixels
+            if bit_index >= len(data_bits):
+                last_pixel = pixel_index
+                # print(f"Encoded from pixel {offset} to {last_pixel}")
+                break  # No more bits to encode, stop encoding
 
-    def process(self):
-        pass
+        # Add the rest of the pixels
+        #encoded_pixels += pixels[len(encoded_pixels):]
+        encoded_pixels += pixels[last_pixel + 1:]
 
-    def encode(self, file_path: str, data: str, pattern: Pattern, output_path: str) -> None:
-        self.load_image(file_path)
-        self.load_pattern(pattern)
+        # If pixels list is made of tuples of only one integer, flatten it
+        if len(encoded_pixels[0]) == 1:
+            encoded_pixels = [pixel[0] for pixel in encoded_pixels]
+
+        return encoded_pixels, last_pixel - offset
+
+    def process(self, **kwargs) -> None:
+        image: Image = kwargs.get("image", None)
+        input_path: str = kwargs.get("input_path", None)
+
+        if not self.image or image or input_path:
+            if image:
+                if isinstance(image, Image.Image):
+                    self.image = kwargs.get("image")
+                else:
+                    raise ValueError("Image must be a PIL.Image.Image object.")
+            elif input_path:
+                if isinstance(input_path, str):
+                    self.image = self._perform_load_image(input_path)
+                else:
+                    raise ValueError("Input path must be a string.")
+            else:
+                raise ValueError("No image loaded, use load_image() or pass the image as a keyword argument.")
+
+        pattern: Pattern = kwargs.get("pattern", None)
+        if not self.pattern or pattern:
+            if pattern:
+                if isinstance(pattern, Pattern):
+                    self.load_pattern(pattern)
+                else:
+                    raise ValueError("Pattern must be a Pattern object.")
+            else:
+                raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
+
+        output_path = kwargs.get("output_path", f"{self.image.filename.split('.')[0]}_encoded.{self.image.filename.split('.')[1]}")
+        data = kwargs.get("data", None)
+
+        data = data.encode(self.encoding) if isinstance(data, str) else data
+
         pixels = get_image_pixels(self.image)
         encoded_pixels = self.apply_pattern(pixels, data)
         encoded_image = create_image_from_pixels(encoded_pixels, self.image.mode, self.image.size)
-        self.image = encoded_image
-        self.save_image(output_path)
+        self.processed_image = encoded_image
+        self._perform_save_image(self.processed_image, output_path)

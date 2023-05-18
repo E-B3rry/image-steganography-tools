@@ -4,7 +4,6 @@
 from src.base import BaseSteganography
 from src.pattern import Pattern
 from src.utils import get_image_pixels
-from log_config import get_logger
 
 # External modules
 from PIL import Image
@@ -20,72 +19,126 @@ class Decoder(BaseSteganography):
     def __init__(self, **kwargs):
         super().__init__()
         self.pattern: Pattern = kwargs.get("pattern", None)
-
         self.encoding: str = kwargs.get("encoding", "utf-8")
         self.image: Image = kwargs.get("image", None)
 
     def load_pattern(self, pattern: Pattern):
         self.pattern = pattern
 
-    def extract_data(self, pixels: list[tuple[int, ...], ...]) -> str:
-        pattern_data = self.pattern.generate_pattern()
-        channels = pattern_data["channels"]
-        bit_frequency = pattern_data["bit_frequency"]
-        redundancy = pattern_data["redundancy"]
-        hash_check = pattern_data["hash_check"]
-        byte_spacing = pattern_data["byte_spacing"]
-        compression_enabled = pattern_data["compression"]
+    def decode_data(self, pixels: list[tuple[int, ...], ...], data_length: int, channels: str,
+                    bit_frequency: int, byte_spacing: int, offset: int = 0) -> (bytes, int):
+        data_bits = ""
 
-        extracted_bits = ""
         channel_counters = {channel: 0 for channel in self.image.mode}
-        for pixel_index, pixel in enumerate(pixels):
+
+        # If pixels list is not made of tuples but of integers, convert it to tuples
+        if isinstance(pixels[0], int):
+            pixels = [(pixel,) for pixel in pixels]
+
+        last_pixel = offset
+        for pixel_index, pixel in enumerate(pixels[offset:], start=offset):
+            # print(f"Processing pixel {pixel_index}: {pixel}")
             for channel_index, value in enumerate(pixel):
-                channel = self.image.mode[channel_index]
+                channel = self.image.mode[channel_index % len(self.image.mode)]
 
                 if channel in channels:
                     if channel_counters[channel] % byte_spacing == 0:
                         value_bits = format(value, '08b')
-                        extracted_bits += value_bits[-bit_frequency:]
+                        # print(value_bits)
+                        data_bits += value_bits[-bit_frequency:]
 
                     channel_counters[channel] += 1
 
+                if len(data_bits) >= data_length * 8:
+                    last_pixel = pixel_index
+                    break
+            else:
+                continue
+
+            # print(f"Decoded from pixel {offset} to {last_pixel}")
+            break
+
+        # print(f"data_bits: {data_bits}")
         data_bytes = bytearray()
-        for i in range(0, len(extracted_bits), 8 * redundancy):
-            byte = extracted_bits[i:i + 8 * redundancy]
 
-            # TODO: Really implement redundancy check in Decoder
-            # Reduce redundancy
-            byte = byte[::redundancy]
-
-            if byte == "00000000":  # Stop at the null delimiter
-                break
+        for i in range(0, data_length * 8, 8):
+            #self.logger.debug(f"Extracting byte {i} to {i + 8}: {data_bits[i:i + 8]}")
+            byte = data_bits[i:i + 8]
             data_bytes.append(int(byte, 2))
 
-        if compression_enabled:
-            compression_flag, data_bytes = data_bytes[0], data_bytes[1:]
+        return data_bytes, last_pixel - offset
 
-            if compression_flag == b'1':
-                data_bytes = self.pattern.decompress_data(data_bytes)
+    def extract_data(self, pixels: list[tuple[int, ...], ...]) -> str:
+        pattern_data = self.pattern.generate_pattern(self.image.mode)
+        channels = pattern_data["channels"]
+        bit_frequency = pattern_data["bit_frequency"]
+        byte_spacing = pattern_data["byte_spacing"]
+        offset = pattern_data["offset"]
+        header_enabled = pattern_data["header_enabled"]
+        header_channels = pattern_data["header_channels"]
+        header_bit_frequency = pattern_data["header_bit_frequency"]
+        header_byte_spacing = pattern_data["header_byte_spacing"]
 
-        data = data_bytes.decode(self.encoding, errors="ignore")
+        data_length = 0
+        if header_enabled:
+            # Get the expected header data size and extract the header data
+            header_size = len(self.pattern.generate_header(0))
+            header_data, header_pixels_size = self.decode_data(pixels, header_size, header_channels, header_bit_frequency, header_byte_spacing, 0)
+            # TODO: Add header positioning support
 
-        if hash_check:
-            original_data, data_hash = data[:-64], data[-64:]
-            if Pattern.compute_hash(original_data) != data_hash:
+            # Remove redundancy from the header data
+            header_data = self.pattern.reconstruct_redundancy(header_data, "header")
+
+            # Extract the data length and other information from the header_data
+            data_length = int.from_bytes(header_data[:4], "big")
+            pattern_flag = header_data[4]
+
+            if pattern_flag == 1:
+                # TODO: Support extracting and loading the pattern from the header_data
+                pass
+
+            # Update the offset based on the header data
+            offset += header_pixels_size
+
+        data_bytes, _ = self.decode_data(pixels, data_length, channels, bit_frequency, byte_spacing, offset + 1)
+
+        # Remove redundancy from the data
+        data_bytes = self.pattern.reconstruct_redundancy(data_bytes, "data")
+
+        if pattern_data["compression_enabled"]:
+            data_bytes = self.pattern.decompress_data(data_bytes)
+
+        if pattern_data["hash_check"]:
+            data_bytes, data_hash = data_bytes[:-32], data_bytes[-32:]
+            if self.pattern.compute_hash(data_bytes) != data_hash:
                 raise ValueError("Data integrity check failed")
-            return original_data
 
-        # self.logger.debug(f"Extracted bits: {extracted_bits}")
-        self.logger.debug(f"Extracted data: {data}")
+        data = data_bytes.decode(self.encoding)
 
         return data
 
-    def process(self):
-        pass
+    def process(self, **kwargs) -> str:
+        file_path: str = kwargs.get("file_path", None)
+        pattern: Pattern = kwargs.get("pattern", None)
 
-    def decode(self, file_path: str, pattern: Pattern) -> str:
-        self.load_image(file_path)
-        self.load_pattern(pattern)
+        if not self.image or file_path:
+            if file_path:
+                if isinstance(file_path, str):
+                    self.image = self._perform_load_image(file_path)
+                else:
+                    raise ValueError("File path must be a string.")
+            else:
+                raise ValueError("No image loaded, use load_image() or pass the file_path as a keyword argument.")
+
+        if not self.pattern or pattern:
+            if pattern:
+                if isinstance(pattern, Pattern):
+                    self.load_pattern(pattern)
+                else:
+                    raise ValueError("Pattern must be a Pattern object.")
+            else:
+                raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
+
         pixels = get_image_pixels(self.image)
         data = self.extract_data(pixels)
         return data

@@ -49,14 +49,14 @@ To encode data into an image:
 
 ```python
 encoder = Encoder()
-encoder.encode("input_image.png", "Secret message", pattern, "output_image.png")
+encoder.process("input_image.png", "Secret message", pattern, "output_image.png")
 ```
 
 To decode data from an image:
 
 ```python
 decoder = Decoder()
-decoded_data = decoder.decode("output_image.png", pattern)
+decoded_data = decoder.process("output_image.png", pattern)
 print(decoded_data)
 ```
 
