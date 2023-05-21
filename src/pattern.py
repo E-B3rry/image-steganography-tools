@@ -6,14 +6,48 @@ from math import ceil
 from typing import Union
 
 # Project modules
-from src.utils import calculate_byte_distance, rs_decode, rs_encode
-from src.log_config import get_logger, logging
-from src.exceptions import CompressionNotImplementedError
+from utils import calculate_byte_distance, rs_decode, rs_encode, ranges_overlap
+from log_config import get_logger, logging
+from exceptions import CompressionNotImplementedError
 
 # External modules
 
 """
-Pattern generator and interpreter of the Image Steganography Tools library.
+Pattern.py is a module in the IST (Image Steganography Tools) library that provides functionality for generating, interpreting, and applying patterns for encoding and decoding hidden data in images. It supports various redundancy and compression methods to enhance data integrity and reduce the size of the hidden data. The module contains a Pattern class that implements the pattern generation, redundancy, compression, and hashing processes.
+
+Classes and Methods:
+- Pattern: The main class that implements the pattern generation, redundancy, compression, and hashing processes.
+    - __init__(self, **kwargs): Initializes the Pattern object with optional keyword arguments.
+    - generate_pattern(self, image_channels: str) -> dict: Generates a pattern dictionary from the Pattern object's attributes.
+    - generate_header(self, data_len: int) -> bytes: Generates the header based on the pattern's attributes.
+    - compress_data(self, data: bytes, parameters_source: str = "data") -> bytes: Compresses data using the pattern's compression pattern.
+    - decompress_data(self, data: bytes, parameters_source: str = "data") -> bytes: Decompresses data using the pattern's compression pattern.
+    - apply_redundancy(self, data: bytes, parameters_source: str = "data") -> bytes: Applies redundancy to data using the pattern's redundancy pattern.
+    - reconstruct_redundancy(self, data: bytes, parameters_source: str = "data") -> bytes: Reconstructs data using the pattern's redundancy pattern, if any and if applicable.
+    - compute_hash(self, data: Union[bytearray, bytes]) -> bytes: Computes the hash of a bytearray.
+    - calculate_max_data_size(self, image_size: tuple[int, int], image_mode: str) -> int: Calculates the maximum size of the data that can be stored in an image with current pattern settings.
+
+Usage:
+To use the Pattern module, create a Pattern object and configure its attributes. Then, use the methods provided by the Pattern class to generate patterns, headers, apply redundancy, and compress/decompress data. For example:
+
+    from IST import Pattern
+
+    # Create a Pattern object with custom attributes
+    pattern = Pattern(bit_frequency=2, byte_spacing=2, compression="zlib", advanced_redundancy="reed_solomon")
+
+    # Generate a pattern dictionary for an RGBA image
+    pattern_dict = pattern.generate_pattern("RGBA")
+
+    # Apply redundancy and compression to data
+    data = b"Hello, world!"
+    compressed_data = pattern.compress_data(data)
+    redundant_data = pattern.apply_redundancy(compressed_data)
+
+    # Reconstruct and decompress data
+    reconstructed_data = pattern.reconstruct_redundancy(redundant_data)
+    decompressed_data = pattern.decompress_data(reconstructed_data)
+
+This module is part of the IST (Image Steganography Tools) library, which provides a comprehensive set of tools for hiding and extracting data within images.
 """
 
 
@@ -64,7 +98,6 @@ class Pattern:
         self.header_position: str = kwargs.get("header_position", "auto")  # Options: "auto", "image_start" and "before_data"
         # In "auto" mode, the header is automatically placed before the data, unless the header is meant to be discovered, in which case it is
         # automatically placed at the start of the image.
-        # TODO: Implement header_position modes.
 
         # These are default options, but they can be changed to reduce the header's discoverability.
         self.header_bit_frequency: int = kwargs.get("header_bit_frequency", 1)
@@ -75,7 +108,12 @@ class Pattern:
         self.header_advanced_redundancy_correction_factor: float = kwargs.get("header_advanced_redundancy_correction_factor", 0.1)
 
     def generate_pattern(self, image_channels: str) -> dict:
-        """Generates a pattern dictionary from the Pattern object's attributes."""
+        """
+        Generates a pattern dictionary from the Pattern object's attributes.
+        :param image_channels: The channels of the image to be used. E.g. "RGBA".
+        :return: A dictionary containing the computed pattern's attributes.
+        """
+        # Determine and/or validate the image channels.
         image_channels = image_channels.upper()
 
         if not image_channels:
@@ -91,6 +129,7 @@ class Pattern:
         if not all([channel in image_channels for channel in self.channels]):
             raise ValueError(f"Invalid channel(s) for image: {self.channels}")
 
+        # Decide which channels the header should be written in.
         if self.header_channels == "auto":
             if self.header_enabled and self.header_write_data_size and (self.header_write_pattern or self.header_position == "image_start"):
                 if "A" in image_channels:
@@ -107,8 +146,18 @@ class Pattern:
         if not all([channel in image_channels for channel in header_channels]):
             raise ValueError(f"Invalid header channel(s) for image: {header_channels}")
 
+        # Decide where the header should be written.
+        header_position = self.header_position.lower().strip()
+        if header_position == "auto":
+            if self.header_enabled and self.header_write_data_size and self.header_write_pattern:
+                header_position = "image_start"
+            else:
+                header_position = "before_data"
+        else:
+            header_position = self.header_position.lower().strip()
+
         return {
-            "offset": self.offset,
+            "position": self.offset,
             "channels": channels,
             "bit_frequency": self.bit_frequency,
             "byte_spacing": self.byte_spacing,
@@ -124,7 +173,7 @@ class Pattern:
             "header_write_data_size": self.header_write_data_size,
             "header_write_pattern": self.header_write_pattern,
             "header_channels": header_channels,
-            "header_position": self.header_position,
+            "header_position": header_position,
             "header_bit_frequency": self.header_bit_frequency,
             "header_byte_spacing": self.header_byte_spacing,
             "header_repetitive_redundancy": self.header_repetitive_redundancy,

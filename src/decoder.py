@@ -1,17 +1,42 @@
 # Internal modules
 
 # Project modules
-from src.base import BaseSteganography
-from src.pattern import Pattern
-from src.utils import get_image_pixels
+from base import BaseSteganography
+from pattern import Pattern
+from utils import get_image_pixels, ranges_overlap
 
 # External modules
 from PIL import Image
 
 
 """
+Decoder.py is a module in the IST (Image Steganography Tools) library that provides functionality for decoding and extracting hidden data from images. It is designed to work with various image formats and supports customizable decoding patterns. The module contains a Decoder class that implements the decoding process and provides methods for loading images, patterns, and extracting data.
 
 
+Classes and Methods:
+- Decoder: The main class that implements the decoding process.
+    - __init__(self, **kwargs): Initializes the Decoder object with optional keyword arguments.
+    - load_pattern(self, pattern: Pattern): Loads a Pattern object for decoding.
+    - decode_data(self, pixels: list[tuple[int, ...], ...], data_length: int, channels: str, bit_frequency: int, byte_spacing: int, offset: int = 0): Decodes and extracts data from the given pixel values based on the specified parameters.
+    - extract_data(self, pixels: list[tuple[int, ...], ...], data_length=None, enforce_provided_pattern=False): Extracts the hidden data from the given pixel values based on the loaded pattern and optional data_length parameter.
+    - process(self, **kwargs): Main method that loads the image and pattern (if not already loaded) and extracts the hidden data.
+
+Usage:
+To use the Decoder module, create a Decoder object and load an image and pattern. Then, call the process() method to extract the hidden data. For example:
+
+    from IST import Decoder, Pattern
+
+    # Create a Decoder object
+    decoder = Decoder()
+
+    # Load an image and pattern
+    decoder.load_image("path/to/image.png")
+    decoder.load_pattern(Pattern())
+
+    # Extract the hidden data
+    hidden_data = decoder.process()
+
+This module is part of the IST (Image Steganography Tools) library, which provides a comprehensive set of tools for hiding and extracting data within images.
 """
 
 
@@ -68,39 +93,50 @@ class Decoder(BaseSteganography):
 
         return data_bytes, last_pixel - offset
 
-    def extract_data(self, pixels: list[tuple[int, ...], ...]) -> str:
-        pattern_data = self.pattern.generate_pattern(self.image.mode)
+    def extract_data(self, pixels: list[tuple[int, ...], ...], data_length=None, enforce_provided_pattern=False) -> str:
+        pattern_data = self.pattern.generate_pattern(image_channels=self.image.mode)
+
         channels = pattern_data["channels"]
         bit_frequency = pattern_data["bit_frequency"]
         byte_spacing = pattern_data["byte_spacing"]
-        offset = pattern_data["offset"]
+        position = pattern_data["position"]
+
         header_enabled = pattern_data["header_enabled"]
         header_channels = pattern_data["header_channels"]
         header_bit_frequency = pattern_data["header_bit_frequency"]
         header_byte_spacing = pattern_data["header_byte_spacing"]
 
-        data_length = 0
+        header_offset_size = 0
         if header_enabled:
-            # Get the expected header data size and extract the header data
-            header_size = len(self.pattern.generate_header(0))
-            header_data, header_pixels_size = self.decode_data(pixels, header_size, header_channels, header_bit_frequency, header_byte_spacing, 0)
-            # TODO: Add header positioning support
+            # Get the expected header data size and extract the header data from the specified position
+            header_size = len(self.pattern.generate_header(0))  # TODO: Optimize this to avoid generating the header twice
+
+            # Compute the header position
+            header_position = 0
+            if pattern_data["header_position"] == "image_start":
+                header_position = 0
+            elif pattern_data["header_position"] == "before_data":
+                header_position = position
+
+            # Extract the header data
+            header_data, header_offset_size = self.decode_data(pixels, header_size, header_channels, header_bit_frequency, header_byte_spacing,
+                                                               header_position)
 
             # Remove redundancy from the header data
             header_data = self.pattern.reconstruct_redundancy(header_data, "header")
 
             # Extract the data length and other information from the header_data
-            data_length = int.from_bytes(header_data[:4], "big")
+            data_length = int.from_bytes(header_data[:4], "big") if not enforce_provided_pattern or not data_length else data_length
             pattern_flag = header_data[4]
 
-            if pattern_flag == 1:
+            if pattern_flag == 1 and not enforce_provided_pattern:
                 # TODO: Support extracting and loading the pattern from the header_data
                 pass
 
-            # Update the offset based on the header data
-            offset += header_pixels_size
+            if pattern_data["header_position"] == "image_start" and not ranges_overlap(0, header_offset_size, position, position):
+                header_offset_size = 0
 
-        data_bytes, _ = self.decode_data(pixels, data_length, channels, bit_frequency, byte_spacing, offset + 1)
+        data_bytes, _ = self.decode_data(pixels, data_length, channels, bit_frequency, byte_spacing, position + header_offset_size)
 
         # Remove redundancy from the data
         data_bytes = self.pattern.reconstruct_redundancy(data_bytes, "data")
@@ -140,5 +176,5 @@ class Decoder(BaseSteganography):
                 raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
 
         pixels = get_image_pixels(self.image)
-        data = self.extract_data(pixels)
+        data = self.extract_data(pixels)  # TODO: Add support for enforcing a provided pattern or specifying data length
         return data

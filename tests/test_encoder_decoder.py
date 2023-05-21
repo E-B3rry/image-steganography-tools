@@ -56,7 +56,8 @@ class TestEncoderDecoder(unittest.TestCase):
 
             for pattern in test_patterns:
                 count += 1
-                with self.subTest(img_format=img_format, pattern=pattern.generate_pattern(image_channels=pattern.channels)):
+                with self.subTest(img_format=img_format,
+                                  pattern=pattern.generate_pattern(image_channels=pattern.channels, data_length=len(data))):
                     try:
                         # First, process the data using the pattern
                         encoder = Encoder()
@@ -80,8 +81,14 @@ class TestEncoderDecoder(unittest.TestCase):
 
                         success_count += 1
                     except (AssertionError, ValueError):
-                        print(f"Test failed for image format: {img_format} and pattern: {pattern.generate_pattern()}")
-                        print(f"Original data (len={len(data)}): {data}")
+                        try:
+                            decoded_data
+                        except NameError:
+                            decoded_data = ""
+
+                        print(f"Test failed for image format: \"{img_format}\" and pattern:",
+                              f"{pattern.generate_pattern(image_channels=pattern.channels, data_length=len(data))}")
+                        print(f"\nOriginal data (len={len(data)}): {data}")
                         print(f"Decoded data (len={len(decoded_data)}): {decoded_data[:len(data) * 2]}\n")
                         raise
 

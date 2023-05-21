@@ -2,16 +2,43 @@
 from typing import Union
 
 # Project modules
-from src.base import BaseSteganography
-from src.pattern import Pattern
-from src.utils import get_image_pixels, create_image_from_pixels
-from src.log_config import get_logger
+from base import BaseSteganography
+from pattern import Pattern
+from utils import get_image_pixels, create_image_from_pixels, ranges_overlap
+from log_config import get_logger
 
 # External modules
 from PIL import Image
 
 """
-Encoder module of the Image Steganography Tools library.
+Encoder.py is a module in the IST (Image Steganography Tools) library that provides functionality for encoding and hiding data within images. It is designed to work with various image formats and supports customizable encoding patterns. The module contains an Encoder class that implements the encoding process and provides methods for loading images, patterns, and hiding data.
+
+Classes and Methods:
+- Encoder: The main class that implements the encoding process.
+    - __init__(self, **kwargs): Initializes the Encoder object with optional keyword arguments.
+    - load_pattern(self, pattern: Pattern): Loads a Pattern object for encoding.
+    - unload_processed_image(self): Unloads the processed image from memory.
+    - available_bytes_for_data(self): Returns the number of available bytes for data based on the loaded pattern.
+    - apply_pattern(self, pixels: list[tuple[int, ...], ...], data: bytes): Applies the encoding pattern to the given pixel values and hides the data.
+    - encode_data(self, pixels: list[int | tuple[int, ...], ...], data: Union[bytes, bytearray], channels: str, bit_frequency: int, byte_spacing: int, offset: int = 0): Encodes the data into the given pixel values based on the specified parameters.
+    - process(self, **kwargs): Main method that loads the image and pattern (if not already loaded), hides the data, and saves the processed image.
+
+Usage:
+To use the Encoder module, create an Encoder object and load an image and pattern. Then, call the process() method to hide the data and save the processed image. For example:
+
+    from IST import Encoder, Pattern
+
+    # Create an Encoder object
+    encoder = Encoder()
+
+    # Load an image and pattern
+    encoder.load_image("path/to/image.png")
+    encoder.load_pattern(Pattern())
+
+    # Hide the data and save the processed image
+    encoder.process(data="Secret message", output_path="path/to/processed_image.png")
+
+This module is part of the IST (Image Steganography Tools) library, which provides a comprehensive set of tools for hiding and extracting data within images.
 """
 
 logger = get_logger("encoder")
@@ -41,15 +68,29 @@ class Encoder(BaseSteganography):
         return self.pattern.calculate_max_data_size((self.image.width, self.image.height), self.image.mode) or 0
 
     def apply_pattern(self, pixels: list[tuple[int, ...], ...], data: bytes) -> list[tuple[int, ...]]:
-        pattern = self.pattern.generate_pattern(self.image.mode)
+        pattern_data = self.pattern.generate_pattern(self.image.mode)
+
+        channels = pattern_data["channels"]
+        bit_frequency = pattern_data["bit_frequency"]
+        byte_spacing = pattern_data["byte_spacing"]
+        position = pattern_data["position"]
+        hash_check = pattern_data["hash_check"]
+        compression_enabled = pattern_data["compression_enabled"]
+
+        header_enabled = pattern_data["header_enabled"]
+        header_write_data_size = pattern_data["header_write_data_size"]
+        header_write_pattern = pattern_data["header_write_pattern"]
+        header_channels = pattern_data["header_channels"]
+        header_bit_frequency = pattern_data["header_bit_frequency"]
+        header_byte_spacing = pattern_data["header_byte_spacing"]
 
         # Compute hash if enabled
-        if pattern["hash_check"]:
+        if hash_check:
             data_hash = self.pattern.compute_hash(data)
             data += data_hash
 
         # Compress if enabled
-        if pattern["compression_enabled"]:
+        if compression_enabled:
             data = self.pattern.compress_data(data)
 
         # Add the redundancy
@@ -60,24 +101,34 @@ class Encoder(BaseSteganography):
                              f"try using a different pattern or increasing compression rate if possible.")
 
         header_added_offset = 0
-        # If header is enabled, accordingly generate header
-        if pattern["header_enabled"] and pattern["header_write_data_size"] or pattern["header_write_pattern"]:
+        # If header is enabled, accordingly generate the header
+        header = None
+        if header_enabled and (header_write_data_size or header_write_pattern):
             header = self.pattern.generate_header(len(data))
-            # print(f"Header data: {[int(x) for x in header]}")
 
-            data_length = int.from_bytes(header[:4], "big")
-            # print(f"Data length: {data_length}")
-
+            # If the header is not null, encode it
             if header:
-                old_pixels = pixels
-                pixels, header_added_offset = self.encode_data(pixels, header, pattern["header_channels"], pattern["header_bit_frequency"],
-                                                               pattern["header_byte_spacing"], 0)  # TODO: Add header positioning support
+                # Compute the header position
+                header_position = 0
+                if pattern_data["header_position"] == "image_start":
+                    header_position = 0
+                elif pattern_data["header_position"] == "before_data":
+                    header_position = position
 
-                # print(f"Header data before encoding: {old_pixels[:header_added_offset + 1]}")
-                # print(f"Header data after encoding: {pixels[:header_added_offset + 1]}")
+                # Remember the header_added_offset to add it to the data offset if required
+                pixels, header_added_offset = self.encode_data(pixels, header, header_channels, header_bit_frequency, header_byte_spacing,
+                                                               header_position)
 
-        pixels, _ = self.encode_data(pixels, data, pattern["channels"], pattern["bit_frequency"],
-                                     pattern["byte_spacing"], pattern["offset"] + header_added_offset + 1)
+        if header:
+            # If header is set to image_start, and the data is not overlapping with the header, don't add the header offset
+            if pattern_data["header_position"] == "image_start" and not ranges_overlap(0, header_added_offset, position, position):
+                pixels, _ = self.encode_data(pixels, data, channels, bit_frequency, byte_spacing, position)
+            else:
+                # Taking into account the header encoded size
+                pixels, _ = self.encode_data(pixels, data, channels, bit_frequency, byte_spacing, position + header_added_offset)
+        else:
+            # If the header is not enabled just encode the data not taking into account the header
+            pixels, _ = self.encode_data(pixels, data, channels, bit_frequency, byte_spacing, position)
 
         return pixels
 
@@ -131,7 +182,7 @@ class Encoder(BaseSteganography):
                 break  # No more bits to encode, stop encoding
 
         # Add the rest of the pixels
-        #encoded_pixels += pixels[len(encoded_pixels):]
+        # encoded_pixels += pixels[len(encoded_pixels):]
         encoded_pixels += pixels[last_pixel + 1:]
 
         # If pixels list is made of tuples of only one integer, flatten it

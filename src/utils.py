@@ -3,7 +3,7 @@ from math import ceil, floor
 from typing import Union
 
 # Project modules
-from src.exceptions import UnsupportedImageFormatError
+from exceptions import UnsupportedImageFormatError
 
 # External modules
 import PIL
@@ -176,3 +176,15 @@ def calculate_byte_distance(candidate_byte: int, neighbors: list[int]) -> int:
     :return: Distance
     """
     return sum(abs(candidate_byte - n) for n in neighbors)
+
+
+def ranges_overlap(a, b, c, d) -> bool:
+    """
+    Checks if two ranges overlap.
+    :param a: The first range start
+    :param b: The first range end
+    :param c: The second range start
+    :param d: The second range end
+    :return: A boolean indicating if the ranges overlap
+    """
+    return (c <= a <= d) or (c <= b <= d) or (a <= c <= b) or (a <= d <= b)
