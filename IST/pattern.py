@@ -6,9 +6,9 @@ from math import ceil
 from typing import Union
 
 # Project modules
-from utils import calculate_byte_distance, rs_decode, rs_encode, ranges_overlap
-from log_config import get_logger, logging
-from exceptions import CompressionNotImplementedError
+from .utils import calculate_byte_distance, rs_decode, rs_encode
+from .log_config import get_logger, logging
+from .exceptions import CompressionNotImplementedError
 
 # External modules
 
@@ -71,7 +71,7 @@ class Pattern:
 
         # Data redundancy
         self.advanced_redundancy: str = kwargs.get("advanced_redundancy", "reed_solomon")  # Options: "reed_solomon", "hamming", "none"
-        self.advanced_redundancy_correction_factor: float = kwargs.get("advanced_redundancy_correction_factor", 0.1)  # Allowed range ]0, +inf[
+        self.advanced_redundancy_correction_factor: float = kwargs.get("advanced_redundancy_correction_factor", 0.1)  # Allowed range ]0, 1]
         # Correction factor capability (default: 0.1), used to calculate the ability to correct errors based on the chosen algorithm.
         # The size augmentation is based on the chose redundancy algorithm and the correction factor.
         # - For reed-solomon, the size augmentation is 2 * correction_factor * data_size.
@@ -119,17 +119,19 @@ class Pattern:
         if not image_channels:
             raise ValueError("Invalid image channels (empty).")
 
+        self.channels = self.channels.lower()
         if self.channels is None or self.channels == "all" or self.channels == "":
             channels = image_channels
         elif self.channels == "auto":
             channels = image_channels
         else:
-            channels = self.channels
+            channels = self.channels.upper()
 
-        if not all([channel in image_channels for channel in self.channels]):
-            raise ValueError(f"Invalid channel(s) for image: {self.channels}")
+        if not all([channel in image_channels for channel in channels]):
+            raise ValueError(f"Invalid channel(s) for image: {channels}, initial value: {self.channels}")
 
         # Decide which channels the header should be written in.
+        self.header_channels = self.header_channels.lower()
         if self.header_channels == "auto":
             if self.header_enabled and self.header_write_data_size and (self.header_write_pattern or self.header_position == "image_start"):
                 if "A" in image_channels:
@@ -139,9 +141,11 @@ class Pattern:
                 else:
                     header_channels = image_channels[0]
             else:
-                header_channels = self.channels
+                header_channels = image_channels
+        elif self.header_channels is None or self.header_channels == "all" or self.header_channels == "":
+            header_channels = image_channels
         else:
-            header_channels = self.header_channels
+            header_channels = self.header_channels.upper()
 
         if not all([channel in image_channels for channel in header_channels]):
             raise ValueError(f"Invalid header channel(s) for image: {header_channels}")
@@ -443,10 +447,11 @@ class Pattern:
         :param image_mode: The Pillow image mode string (e.g., "RGB", "RGBA", "L", etc.).
         :return: The maximum size of the data.
         """
+        generated_pattern = self.generate_pattern(image_mode)
         pixels = image_size[0] * image_size[1]
 
         # Filter the pattern channels based on the image mode
-        available_channels = "".join([channel for channel in self.channels if channel in image_mode])
+        available_channels = "".join([channel for channel in generated_pattern["channels"] if channel in image_mode])
 
         # Calculate the number of bits per pixel
         bits_per_pixel = len(available_channels) * self.bit_frequency
@@ -465,10 +470,8 @@ class Pattern:
             rs_redundant_symbols = 0
 
         if self.repetitive_redundancy > 1:
-            if self.repetitive_redundancy_mode.lower() == "byte_per_byte":
-                repetitive_redundancy_overhead = self.repetitive_redundancy - 1
-            elif self.repetitive_redundancy_mode.lower() == "block":
-                repetitive_redundancy_overhead = raw_data_bytes * (self.repetitive_redundancy - 1)
+            if self.repetitive_redundancy_mode.lower() in ["byte_per_byte", "block"]:
+                repetitive_redundancy_overhead = raw_data_bytes * (self.repetitive_redundancy - 1) // self.repetitive_redundancy
             else:
                 repetitive_redundancy_overhead = 0
         else:
@@ -478,3 +481,33 @@ class Pattern:
         max_data_size = raw_data_bytes - rs_redundant_symbols - repetitive_redundancy_overhead
 
         return max_data_size
+
+    @classmethod
+    def from_dict(cls, pattern_dict: dict):
+        # Extracting header if nested
+        if "header" in pattern_dict:
+            for k, v in pattern_dict["header"].items():
+                pattern_dict[f"header_{k}"] = v
+
+        del pattern_dict["header"]
+
+        # Ensuring types
+        if "channels" in pattern_dict:
+            if isinstance(pattern_dict["channels"], list):
+                pattern_dict["channels"] = ''.join(pattern_dict["channels"]).upper()
+
+        if "header_channels" in pattern_dict:
+            if isinstance(pattern_dict["header_channels"], list):
+                pattern_dict["header_channels"] = ''.join(pattern_dict["header_channels"]).upper()
+
+        # Ensuring types for other parameters
+        for key, value in pattern_dict.items():
+            if key.endswith("_redundancy_correction_factor"):
+                pattern_dict[key] = float(value)
+            elif key.endswith("redundancy") or key.endswith("strength") or key.endswith("bit_frequency") or key.endswith("byte_spacing") or key.endswith("offset"):
+                if key not in ["advanced_redundancy", "header_advanced_redundancy"]:
+                    pattern_dict[key] = int(value)
+            elif key.endswith("_enabled") or key.endswith("_write_data_size") or key.endswith("_write_pattern"):
+                pattern_dict[key] = bool(value)
+
+        return cls(**pattern_dict)

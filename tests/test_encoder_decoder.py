@@ -3,13 +3,13 @@ import unittest
 import sys
 from pathlib import Path
 
-src_path = str(Path(__file__).resolve().parent.parent / 'src')
+src_path = str(Path(__file__).resolve().parent.parent / 'IST')
 sys.path.insert(0, src_path)
 
 # Project modules
 from test_pattern import generate_test_patterns, filter_patterns  # noqa: E402
-from src.encoder import Encoder  # noqa: E402
-from src.decoder import Decoder  # noqa: E402
+from IST.encoder import Encoder  # noqa: E402
+from IST.decoder import Decoder  # noqa: E402
 
 
 class TestEncoderDecoder(unittest.TestCase):

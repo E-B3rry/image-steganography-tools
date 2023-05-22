@@ -4,13 +4,13 @@ import os
 from pathlib import Path
 from PIL import Image
 
-src_path = str(Path(__file__).resolve().parent.parent / 'src')
+src_path = str(Path(__file__).resolve().parent.parent / 'IST')
 sys.path.insert(0, src_path)
 
-from src.base import BaseSteganography  # noqa: E402
-from src.pattern import Pattern  # noqa: E402
-from src.exceptions import UnsupportedImageFormatError  # noqa: E402
-from src.constants import currently_supported_formats  # noqa: E402
+from IST.base import BaseSteganography  # noqa: E402
+from IST.pattern import Pattern  # noqa: E402
+from IST.exceptions import UnsupportedImageFormatError  # noqa: E402
+from IST.constants import currently_supported_formats  # noqa: E402
 
 
 # Subclass of BaseSteganography for testing purposes

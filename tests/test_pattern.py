@@ -4,11 +4,11 @@ from itertools import product
 import sys
 from pathlib import Path
 
-src_path = str(Path(__file__).resolve().parent.parent / 'src')
+src_path = str(Path(__file__).resolve().parent.parent / 'IST')
 sys.path.insert(0, src_path)
 
 # Project modules
-from src.pattern import Pattern  # noqa: E402
+from IST.pattern import Pattern  # noqa: E402
 
 
 def generate_test_patterns(default_params: dict, test_params: dict):

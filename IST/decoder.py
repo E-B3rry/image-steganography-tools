@@ -1,9 +1,9 @@
 # Internal modules
 
 # Project modules
-from base import BaseSteganography
-from pattern import Pattern
-from utils import get_image_pixels, ranges_overlap
+from .base import BaseSteganography
+from .pattern import Pattern
+from .utils import get_image_pixels, ranges_overlap
 
 # External modules
 from PIL import Image
@@ -126,7 +126,9 @@ class Decoder(BaseSteganography):
             header_data = self.pattern.reconstruct_redundancy(header_data, "header")
 
             # Extract the data length and other information from the header_data
-            data_length = int.from_bytes(header_data[:4], "big") if not enforce_provided_pattern or not data_length else data_length
+            if not data_length or not enforce_provided_pattern:
+                data_length = int.from_bytes(header_data[:4], "big") if not enforce_provided_pattern or not data_length else data_length
+
             pattern_flag = header_data[4]
 
             if pattern_flag == 1 and not enforce_provided_pattern:
@@ -157,6 +159,9 @@ class Decoder(BaseSteganography):
         file_path: str = kwargs.get("file_path", None)
         pattern: Pattern = kwargs.get("pattern", None)
 
+        data_length: int = kwargs.get("data_length", None)
+        enforce_provided_pattern: bool = kwargs.get("enforce_provided_pattern", False)
+
         if not self.image or file_path:
             if file_path:
                 if isinstance(file_path, str):
@@ -176,5 +181,5 @@ class Decoder(BaseSteganography):
                 raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
 
         pixels = get_image_pixels(self.image)
-        data = self.extract_data(pixels)  # TODO: Add support for enforcing a provided pattern or specifying data length
+        data = self.extract_data(pixels, data_length=data_length, enforce_provided_pattern=enforce_provided_pattern)
         return data

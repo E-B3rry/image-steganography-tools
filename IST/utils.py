@@ -3,7 +3,7 @@ from math import ceil, floor
 from typing import Union
 
 # Project modules
-from exceptions import UnsupportedImageFormatError
+from .exceptions import UnsupportedImageFormatError
 
 # External modules
 import PIL

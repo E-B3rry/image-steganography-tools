@@ -2,10 +2,10 @@
 from typing import Union
 
 # Project modules
-from base import BaseSteganography
-from pattern import Pattern
-from utils import get_image_pixels, create_image_from_pixels, ranges_overlap
-from log_config import get_logger
+from .base import BaseSteganography
+from .pattern import Pattern
+from .utils import get_image_pixels, create_image_from_pixels, ranges_overlap
+from .log_config import get_logger
 
 # External modules
 from PIL import Image
@@ -219,7 +219,11 @@ class Encoder(BaseSteganography):
             else:
                 raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
 
-        output_path = kwargs.get("output_path", f"{self.image.filename.split('.')[0]}_encoded.{self.image.filename.split('.')[1]}")
+        if self.image.filename:
+            output_path = kwargs.get("output_path", f"{self.image.filename.split('.')[0]}_encoded.{self.image.filename.split('.')[1]}")
+        else:
+            output_path = kwargs.get("output_path", f"ist_encoded.{self.image.format.lower()}")
+
         data = kwargs.get("data", None)
 
         data = data.encode(self.encoding) if isinstance(data, str) else data
