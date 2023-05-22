@@ -1,23 +1,26 @@
 # Image Steganography Tools
 
+![Logo](img/logo-transparent.png)
+
 Image Steganography Tools is a Python library designed to provide functionality for hiding and revealing text or files within images. It supports various image formats and allows users to customize the encoding and decoding process with different patterns.
 
 ## Features
 
-- Supports multiple image formats: PNG, BMP, PGM, PBM, PPM, PNM (more to come)
+- Supports multiple image formats: PNG, BMP, PGM and PPM (more to come)
 - Customizable encoding and decoding patterns
 - *[Upcoming] Integrating patterns data directly into the image for hassle-free decoding*
 - Redundancy and hash check options for improved data integrity
 - Easy-to-use API for encoding and decoding operations
-- *[Upcoming] GUI App for user-friendly interaction*
+- Command-line interface for quick access
+- GUI App for user-friendly interaction
 
 ## Installation
 
 To install the Image Steganography Tools library, simply clone the repository and install the required dependencies:
 
 ```bash
-git clone https://github.com/E-B3rry/ImageSteganographyTools.git
-cd ImageSteganographyTools
+git clone https://github.com/E-B3rry/image-steganography-tools.git
+cd image-steganography-tools
 pip install -r requirements.txt
 ```
 
@@ -28,9 +31,7 @@ pip install -r requirements.txt
 To use the library, first import the necessary modules:
 
 ```python
-from image_steganography_tools.encoder import Encoder
-from image_steganography_tools.decoder import Decoder
-from image_steganography_tools.pattern import Pattern
+from IST import Encoder, Decoder, Pattern, version
 ```
 
 Next, create a pattern for encoding and decoding:
@@ -49,14 +50,27 @@ To encode data into an image:
 
 ```python
 encoder = Encoder()
-encoder.process("input_image.png", "Secret message", pattern, "output_image.png")
+
+# Load an image and pattern
+encoder.load_image("path/to/image.png")
+encoder.load_pattern(pattern)
+
+# Hide the data and save the processed image
+encoder.process(data="Secret message", output_path="path/to/processed_image.png")
 ```
 
 To decode data from an image:
 
 ```python
 decoder = Decoder()
-decoded_data = decoder.process("output_image.png", pattern)
+
+# Load an image and pattern
+decoder.load_image("path/to/processed_image.png")
+decoder.load_pattern(pattern)
+
+# Extract the hidden data
+decoded_data = decoder.process()
+    
 print(decoded_data)
 ```
 
@@ -64,11 +78,11 @@ print(decoded_data)
 
 You can customize the encoding and decoding process by modifying the pattern parameters:
 
-- `channels`: The color channels to use for encoding (e.g., "RGBA", "RGB", "A")
+- `channels`: The color channels to use for encoding (e.g., "auto", "all", "RGBA", "RGB", "A")
 - `bit_frequency`: The number of least significant bits to use for encoding (1-8)
-- `byte_spacing`: The spacing between encoded bytes in the image
-- `redundancy`: The number of times each bit is repeated for error correction (odd numbers only)
-- `hash_check`: Whether to include a hash for data integrity checking (True/False)
+- `byte_spacing`: The spacing between encoded bytes in the image (1-x)
+- `redundancy`: The number of times each bit is repeated for error correction (odd numbers recommended)
+- `hash_check`: Whether to include a hash for data integrity checking (True/False/Other)
 
 For example, to create a pattern with higher redundancy and no hash check:
 
@@ -91,6 +105,7 @@ cd tests
 python test_base.py
 python test_encoder_decoder.py
 python test_pattern.py
+python test_redundancy.py
 python test_utils.py
 ```
 
@@ -105,4 +120,6 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 ## Acknowledgements
 
 - [Pillow (PIL Fork)](https://pillow.readthedocs.io/en/stable/) for image processing
+- [reedsolo](https://pypi.org/project/reedsolo/) for Reed-Solomon error correction
+- [Eel](https://pypi.org/project/Eel/) for the GUI App
 - [l10n](https://pypi.org/project/l10n/) for localization support

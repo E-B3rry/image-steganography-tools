@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Steganography</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    <link rel="stylesheet" href="main.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#header-channels, #channels').on('changed.bs.select', function (e, clickedIndex, isSelected, previousValue) {
+                var selectedOptions = $(this).val();
+                if (selectedOptions.includes("all")) {
+                    $(this).find('option').each(function() {
+                        if ($(this).val() !== "all") {
+                            $(this).prop('disabled', true);
+                            $(this).prop('selected', false);
+                        }
+                    });
+                } else if (selectedOptions.includes("auto")) {
+                    $(this).find('option').each(function() {
+                        if ($(this).val() !== "auto") {
+                            $(this).prop('disabled', true);
+                            $(this).prop('selected', false);
+                        }
+                    });
+                } else {
+                    $(this).find('option').prop('disabled', false);
+                }
+                $(this).selectpicker('refresh');
+            });
+        });
+    </script>
+    <script>
+        const size = [1200, 600];  // Dirty hack to prevent resizing in Eel
+
+        $(window).resize(function(){
+            window.resizeTo(size[0],size[1]);
+        });
+    </script>
+    <script type="text/javascript" src="/eel.js"></script>
+    <script type="text/javascript" src="main.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col text-center">
+                <img src="favicon.png" alt="Logo" class="logo">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="fixed-tabs">
+                    <ul class="nav nav-pills flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="data-tab" data-bs-toggle="pill" href="#Data">Data</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="pattern-tab" data-bs-toggle="pill" href="#Pattern">Pattern</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="process-tab" data-bs-toggle="pill" href="#Process">Process</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div class="tab-content">
+
+                    <div class="tab-pane fade show active" id="Data" role="tabpanel">
+                        <div class="mb-3">
+                            <label for="data-input" class="form-label">Data</label>
+                            <textarea class="form-control" id="data-input" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="data-file" class="form-label">Upload Data File</label>
+                            <input class="form-control" type="file" id="data-file" disabled>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="input-image" class="form-label">Input Image</label>
+                                    <input class="form-control" type="file" id="input-image" accept=".png, .bmp, .pgm, .ppm">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="output-image" class="form-label">Output Image</label>
+                                    <div class="input-group">
+                                        <input class="form-control" type="text" id="output-image" placeholder="Enter output file name">
+                                        <select class="form-select" id="output-format">
+                                            <option value="png" selected>PNG</option>
+                                            <option value="bmp">BMP</option>
+                                            <option value="pgm">PGM</option>
+                                            <option value="ppm">PPM</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="Pattern" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h4>Header Settings</h4>
+                                <div class="form-check form-switch" data-bs-toggle="tooltip" data-bs-placement="right" title="Enable or disable header">
+                                    <input class="form-check-input" type="checkbox" id="header-enabled" checked>
+                                    <label class="form-check-label" for="header-enabled">Header Enabled</label>
+                                </div>
+                                <div class="form-check form-switch" data-bs-toggle="tooltip" data-bs-placement="right" title="Enable or disable writing data size in the header">
+                                    <input class="form-check-input" type="checkbox" id="header-write-data-size" checked>
+                                    <label class="form-check-label" for="header-write-data-size">Write Data Size</label>
+                                </div>
+                                <div class="form-check form-switch" data-bs-toggle="tooltip" data-bs-placement="right" title="Enable or disable writing pattern in the header">
+                                    <input class="form-check-input" type="checkbox" id="header-write-pattern">
+                                    <label class="form-check-label" for="header-write-pattern">Write Pattern</label>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set header channels">
+                                    <label for="header-channels" class="form-label">Header Channels</label>
+                                    <select class="selectpicker" id="header-channels" multiple data-live-search="true" data-selected-text-format="count > 4">
+                                        <option value="auto" selected>auto</option>
+                                        <option value="all">all</option>
+                                        <option value="R">R</option>
+                                        <option value="G">G</option>
+                                        <option value="B">B</option>
+                                        <option value="A">A</option>
+                                        <option value="L">L</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set header position">
+                                    <label for="header-position" class="form-label">Header Position</label>
+                                    <div class="btn-group multi-options-switch" role="group" aria-label="Header position" id="header-position">
+                                        <button type="button" class="btn btn-outline-primary active" onclick="selectOption(this)" data-value="auto">Auto</button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="selectOption(this)" data-value="image_start">Image Start</button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="selectOption(this)" data-value="before_data">Before Data</button>
+                                    </div>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set header bit frequency">
+                                    <label for="header-bit-frequency" class="form-label">Header Bit Frequency</label>
+                                    <input type="number" class="form-control" id="header-bit-frequency" value="1" min="1">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set spacing between bytes in the header encoding">
+                                    <label for="header-byte-spacing" class="form-label">Header Byte Spacing</label>
+                                    <input type="number" class="form-control" id="header-byte-spacing" value="1" min="1">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set repetitive redundancy factor for header">
+                                    <label for="header-repetitive-redundancy" class="form-label">Header Repetitive Redundancy</label>
+                                    <input type="number" class="form-control" id="header-repetitive-redundancy" value="5" min="1">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set advanced redundancy method for header">
+                                    <label for="header-advanced-redundancy" class="form-label">Header Advanced Redundancy</label>
+                                    <div class="btn-group multi-options-switch" role="group" aria-label="Header advanced redundancy" id="header-advanced-redundancy">
+                                        <button type="button" class="btn btn-outline-primary active" onclick="selectOption(this)" data-value="reed_solomon">Reed Solomon</button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="selectOption(this)" data-value="hamming">Hamming</button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="selectOption(this)" data-value="none">None</button>
+                                    </div>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set advanced redundancy correction factor for header">
+                                    <label for="header-advanced-redundancy-correction-factor" class="form-label">Header Advanced Redundancy Correction Factor</label>
+                                    <input type="number" class="form-control" id="header-advanced-redundancy-correction-factor" value="0.1" min="0.1" step="0.05" max="1">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h4>Data Settings</h4>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set offset in pixels">
+                                    <label for="offset" class="form-label">Offset</label>
+                                    <input type="number" class="form-control" id="offset" value="0" min="0">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set channels to be used for encoding">
+                                    <label for="channels" class="form-label">Channels</label>
+                                    <select class="selectpicker" id="channels" multiple data-live-search="true" data-selected-text-format="count > 4">
+                                        <option value="all">all</option>
+                                        <option value="R">R</option>
+                                        <option value="G">G</option>
+                                        <option value="B">B</option>
+                                        <option value="A">A</option>
+                                        <option value="L">L</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set frequency of bits used for encoding">
+                                    <label for="bit-frequency" class="form-label">Bit Frequency</label>
+                                    <input type="number" class="form-control" id="bit-frequency" value="1" min="1">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set spacing between bytes in the encoding">
+                                    <label for="byte-spacing" class="form-label">Byte Spacing</label>
+                                    <input type="number" class="form-control" id="byte-spacing" value="1" min="1">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set hash algorithm for data integrity check">
+                                    <label for="hash-check" class="form-label">Hash Check</label>
+                                    <select class="form-select" id="hash-check">
+                                        <option value="sha256" selected>SHA256</option>
+                                        <option value="sha1">SHA1</option>
+                                        <option value="md5">MD5</option>
+                                        <option value="none">None</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set data compression method">
+                                    <label for="compression" class="form-label">Compression</label>
+                                    <select class="form-select" id="compression">
+                                        <option value="none" selected>None</option>
+                                        <option value="zlib">Zlib</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set compression strength">
+                                    <label for="compression-strength" class="form-label">Compression Strength</label>
+                                    <input type="number" class="form-control" id="compression-strength" value="6" min="1" max="9">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set advanced redundancy method">
+                                    <label for="advanced-redundancy" class="form-label">Advanced Redundancy</label>
+                                    <div class="btn-group multi-options-switch" role="group" aria-label="Advanced redundancy" id="advanced-redundancy">
+                                        <button type="button" class="btn btn-outline-primary active" onclick="selectOption(this)" data-value="reed_solomon">Reed Solomon</button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="selectOption(this)" data-value="hamming">Hamming</button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="selectOption(this)" data-value="none">None</button>
+                                    </div>
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set advanced redundancy correction factor">
+                                    <label for="advanced-redundancy-correction-factor" class="form-label">Advanced Redundancy Correction Factor</label>
+                                    <input type="number" class="form-control" id="advanced-redundancy-correction-factor" value="0.1" min="0.1" step="0.05" max="1">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set repetitive redundancy factor">
+                                    <label for="repetitive-redundancy" class="form-label">Repetitive Redundancy</label>
+                                    <input type="number" class="form-control" id="repetitive-redundancy" value="1" min="1">
+                                </div>
+                                <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set repetitive redundancy mode">
+                                    <label for="repetitive-redundancy-mode" class="form-label">Repetitive Redundancy Mode</label>
+                                    <div class="btn-group multi-options-switch" role="group" aria-label="Repetitive redundancy mode" id="repetitive-redundancy-mode">
+                                        <button type="button" class="btn btn-outline-primary active" onclick="selectOption(this)" data-value="byte_per_byte">Byte per Byte</button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="selectOption(this)" data-value="block">Block</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="Process" role="tabpanel">
+                        <div class="mb-3">
+                            <div class="console-output bg-dark text-white p-3 mb-3" id="console-output" style="height: 200px; overflow-y: auto;"></div>
+                            <div class="row">
+                                <div class="col-md-6 d-flex justify-content-center mb-3">
+                                    <button type="button" class="btn btn-primary" onclick="encode()">Encode</button>
+                                </div>
+                                <div class="col-md-6 d-flex justify-content-center mb-3">
+                                    <button type="button" class="btn btn-secondary" onclick="decode()">Decode</button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6"></div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Enforce provided pattern">
+                                        <input class="form-check-input" type="checkbox" id="enforce-provided-pattern">
+                                        <label class="form-check-label" for="enforce-provided-pattern">Enforce Provided Pattern</label>
+                                    </div>
+                                    <div class="mb-3" data-bs-toggle="tooltip" data-bs-placement="right" title="Set here the known data length if it can't be fetched from the header (disabled or corrupted)">
+                                        <label for="data-length" class="form-label">Data Length</label>
+                                        <input type="number" class="form-control" id="data-length" value="" min="0" placeholder="None">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

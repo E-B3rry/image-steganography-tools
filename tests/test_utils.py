@@ -4,10 +4,10 @@ from PIL import Image
 import sys
 from pathlib import Path
 
-src_path = str(Path(__file__).resolve().parent.parent / 'src')
+src_path = str(Path(__file__).resolve().parent.parent / 'IST')
 sys.path.insert(0, src_path)
 
-from src.utils import (get_image_bytes_size, get_image_pixels,
+from IST.utils import (get_image_bytes_size, get_image_pixels,
                        create_image_from_pixels, calculate_byte_distance)  # noqa: E402
 
 

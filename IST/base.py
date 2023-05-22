@@ -4,10 +4,10 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 # Project modules
-from pattern import Pattern
-from exceptions import UnsupportedImageFormatError
-from constants import currently_supported_formats
-from log_config import get_logger
+from .pattern import Pattern
+from .exceptions import UnsupportedImageFormatError
+from .constants import currently_supported_formats
+from .log_config import get_logger
 
 # External modules
 from PIL import Image
