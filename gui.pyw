@@ -3,6 +3,7 @@ import base64
 import io
 import os
 import sys
+import threading
 
 from PIL import Image
 
@@ -11,6 +12,9 @@ from IST import Encoder, Decoder, Pattern
 
 # External modules
 import eel
+
+
+main_lock = threading.Lock()
 
 
 def is_chrome_installed():
@@ -42,32 +46,37 @@ eel.init("web")
 
 @eel.expose
 def encode_data(input_image, output_image, data, pattern):
-    try:
-        input_image_content = base64.b64decode(input_image.split(',')[1])
-        input_image_file = io.BytesIO(input_image_content)
-        input_image_pil = Image.open(input_image_file)
+    with main_lock:
+        try:
+            input_image_content = base64.b64decode(input_image.split(',')[1])
+            input_image_file = io.BytesIO(input_image_content)
+            input_image_pil = Image.open(input_image_file)
 
-        encoder = Encoder(image=input_image_pil)
-        encoder.load_pattern(Pattern.from_dict(pattern))
-        encoder.process(data=data, output_path=output_image)
-        return f"Data encoded and saved to {output_image}"
-    except Exception as e:
-        return f"Error: {e}"
+            encoder = Encoder(image=input_image_pil)
+            encoder.load_pattern(Pattern.from_dict(pattern))
+            encoder.process(data=data, output_path=output_image)
+            return f"Data encoded and saved to {output_image}"
+        except Exception as e:
+            return f"Error while encoding: {e}"
 
 
 @eel.expose
 def decode_data(input_image, pattern, enforce_provided_pattern, data_length):
-    try:
-        input_image_content = base64.b64decode(input_image.split(',')[1])
-        input_image_file = io.BytesIO(input_image_content)
-        input_image_pil = Image.open(input_image_file)
+    with main_lock:
+        try:
+            if data_length:
+                data_length = int(data_length)
 
-        decoder = Decoder(image=input_image_pil)
-        decoder.load_pattern(Pattern.from_dict(pattern))
-        decoded_data = decoder.process(enforce_provided_pattern=enforce_provided_pattern, data_length=data_length)
-        return f"Decoded data: {decoded_data}"
-    except Exception as e:
-        return f"Error: {e}"
+            input_image_content = base64.b64decode(input_image.split(',')[1])
+            input_image_file = io.BytesIO(input_image_content)
+            input_image_pil = Image.open(input_image_file)
+
+            decoder = Decoder(image=input_image_pil)
+            decoder.load_pattern(Pattern.from_dict(pattern))
+            decoded_data = decoder.process(enforce_provided_pattern=bool(enforce_provided_pattern), data_length=data_length)
+            return f"Decoded data: {decoded_data}"
+        except Exception as e:
+            return f"Error while decoding: {e}"
 
 
 eel.start('index.html', size=(1200, 600))

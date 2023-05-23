@@ -469,16 +469,15 @@ class Pattern:
         else:
             rs_redundant_symbols = 0
 
+        raw_data_bytes -= rs_redundant_symbols
+
         if self.repetitive_redundancy > 1:
             if self.repetitive_redundancy_mode.lower() in ["byte_per_byte", "block"]:
-                repetitive_redundancy_overhead = raw_data_bytes * (self.repetitive_redundancy - 1) // self.repetitive_redundancy
+                max_data_size = raw_data_bytes // self.repetitive_redundancy
             else:
-                repetitive_redundancy_overhead = 0
+                max_data_size = raw_data_bytes
         else:
-            repetitive_redundancy_overhead = 0
-
-        # Calculate the maximum data size
-        max_data_size = raw_data_bytes - rs_redundant_symbols - repetitive_redundancy_overhead
+            max_data_size = raw_data_bytes
 
         return max_data_size
 

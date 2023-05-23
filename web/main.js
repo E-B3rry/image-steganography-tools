@@ -3,6 +3,8 @@ async function encode() {
         return;
     }
 
+    disableControls();
+
     const inputImageFile = document.getElementById("input-image").files[0];
     const inputImage = await fileToBase64(inputImageFile);
     const outputImageName = document.getElementById("output-image").value;
@@ -13,6 +15,8 @@ async function encode() {
 
     const result = await eel.encode_data(inputImage, outputImage, data, pattern)();
     document.getElementById("console-output").innerHTML = result;
+
+    enableControls();
 }
 
 function validateEncodeParameters() {
@@ -37,6 +41,8 @@ async function decode() {
         return;
     }
 
+    disableControls();
+
     const inputImageFile = document.getElementById("input-image").files[0];
     const inputImage = await fileToBase64(inputImageFile);
     const pattern = getPattern();
@@ -45,6 +51,8 @@ async function decode() {
 
     const result = await eel.decode_data(inputImage, pattern, enforceProvidedPattern, dataLength)();
     document.getElementById("console-output").innerHTML = result;
+
+    enableControls();
 }
 
 function validateDecodeParameters() {
@@ -134,4 +142,18 @@ eel.expose(decode_data);
 function selectOption(button) {
     $(button).siblings().removeClass("active");
     $(button).addClass("active");
+}
+
+function disableControls() {
+    const controls = document.querySelectorAll("button, input, select");
+    controls.forEach(control => {
+        control.disabled = true;
+    });
+}
+
+function enableControls() {
+    const controls = document.querySelectorAll("button, input, select");
+    controls.forEach(control => {
+        control.disabled = false;
+    });
 }
