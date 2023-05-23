@@ -1,3 +1,4 @@
+// Encode part
 async function encode() {
     if (!validateEncodeParameters()) {
         return;
@@ -45,6 +46,7 @@ function validateEncodeParameters() {
     return true;
 }
 
+// Decode part
 async function decode() {
     if (!validateDecodeParameters()) {
         return;
@@ -75,6 +77,7 @@ function validateDecodeParameters() {
     return true;
 }
 
+// Helper functions
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -135,6 +138,7 @@ function getPattern() {
     };
 }
 
+// UI functions
 document.addEventListener('DOMContentLoaded', function () {
     var triggerTabList = [].slice.call(document.querySelectorAll('#data-tab, #pattern-tab, #process-tab'))
     triggerTabList.forEach(function (triggerEl) {
@@ -145,14 +149,42 @@ document.addEventListener('DOMContentLoaded', function () {
     })
 })
 
-eel.expose(encode_data);
-eel.expose(decode_data);
+// Eel exposed Functions
+eel.expose(encode);
+eel.expose(decode);
 
+// Function to manually ensure that the min and max values of input[type="number"] elements are enforced
+function enforceMinMaxValues(event) {
+    const input = event.target;
+
+    if (input.tagName === 'INPUT' && input.type === 'number') {
+        const min = input.getAttribute('min') || 0; // Set a default minimum value if not provided
+        const max = input.getAttribute('max');
+
+        if (input.value === '') {
+            input.value = min; // Set the value to the minimum value if it's empty
+        } else {
+            if (parseFloat(input.value) < parseFloat(min)) {
+                input.value = min;
+            }
+
+            if (max && parseFloat(input.value) > parseFloat(max)) {
+                input.value = max;
+            }
+        }
+    }
+}
+
+// Attach a single event listener to the document for the input event
+document.addEventListener('input', enforceMinMaxValues);
+
+// Multi switch JS function
 function selectOption(button) {
     $(button).siblings().removeClass("active");
     $(button).addClass("active");
 }
 
+// Enable and disable all controls for pending operations
 function disableControls() {
     const controls = document.querySelectorAll("button, input, select");
     controls.forEach(control => {
