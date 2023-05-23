@@ -8,7 +8,9 @@ from typing import Union
 # Project modules
 from .utils import calculate_byte_distance, rs_decode, rs_encode
 from .log_config import get_logger, logging
-from .exceptions import CompressionNotImplementedError
+from .exceptions import CompressionNotImplementedError, InvalidHeaderChannelsError, AdvancedRedundancyNotImplementedError, \
+    InvalidRepetitiveRedundancyModeError, InvalidAdvancedRedundancyModeError, ShouldNotComputeHashError, InvalidHashAlgorithmError, \
+    NoImageChannelsError, InvalidChannelsError
 
 # External modules
 
@@ -117,7 +119,7 @@ class Pattern:
         image_channels = image_channels.upper()
 
         if not image_channels:
-            raise ValueError("Invalid image channels (empty).")
+            raise NoImageChannelsError()
 
         self.channels = self.channels.lower()
         if self.channels is None or self.channels == "all" or self.channels == "":
@@ -128,7 +130,7 @@ class Pattern:
             channels = self.channels.upper()
 
         if not all([channel in image_channels for channel in channels]):
-            raise ValueError(f"Invalid channel(s) for image: {channels}, initial value: {self.channels}")
+            InvalidChannelsError(channels, image_channels, initial=self.channels)
 
         # Decide which channels the header should be written in.
         self.header_channels = self.header_channels.lower()
@@ -148,7 +150,7 @@ class Pattern:
             header_channels = self.header_channels.upper()
 
         if not all([channel in image_channels for channel in header_channels]):
-            raise ValueError(f"Invalid header channel(s) for image: {header_channels}")
+            raise InvalidHeaderChannelsError(header_channels, image_channels)
 
         # Decide where the header should be written.
         header_position = self.header_position.lower().strip()
@@ -272,7 +274,7 @@ class Pattern:
                 if compression_flag == b'1':
                     return zlib.decompress(data)
             else:
-                raise NotImplementedError(f"Compression pattern \"{compression}\" not implemented.")
+                raise CompressionNotImplementedError(compression)
 
         return data
 
@@ -305,11 +307,11 @@ class Pattern:
             case "reed_solomon" | "rs":
                 data = rs_encode(data, advanced_redundancy_correction_factor)
             case "hamming" | "ham":
-                raise NotImplementedError("Hamming code correction not implemented.")
+                raise AdvancedRedundancyNotImplementedError("Hamming code")
             case "none" | "no" | None:
                 data = data
             case _:
-                raise ValueError(f"Invalid redundancy pattern \"{advanced_redundancy}\".")
+                raise InvalidAdvancedRedundancyModeError(advanced_redundancy)
 
         # Simple repetitive redundancy
         if repetitive_redundancy > 1:
@@ -319,7 +321,7 @@ class Pattern:
                 case "block":
                     data = data * repetitive_redundancy
                 case _:
-                    raise ValueError(f"Invalid repetitive redundancy mode \"{repetitive_redundancy_mode}\".")
+                    raise InvalidRepetitiveRedundancyModeError(repetitive_redundancy_mode)
 
             data = bytes(data)
 
@@ -362,7 +364,7 @@ class Pattern:
                     chunk_size = len(data) // repetitive_redundancy
                     data = bytes(chain.from_iterable(zip(*[data[i:i + chunk_size] for i in range(0, len(data), chunk_size)])))
                 case _:
-                    raise ValueError(f"Invalid repetitive redundancy mode \"{repetitive_redundancy_mode}\".")
+                    raise InvalidRepetitiveRedundancyModeError(repetitive_redundancy_mode)
 
             # Reconstructing data
             reconstructed_data = bytearray()
@@ -394,11 +396,11 @@ class Pattern:
             case "reed_solomon" | "rs":
                 return rs_decode(data, advanced_redundancy_correction_factor)
             case "hamming" | "ham":
-                raise NotImplementedError("Hamming code not implemented.")
+                raise AdvancedRedundancyNotImplementedError("Hamming code")
             case "none" | "no" | None:
                 return data
             case _:
-                raise ValueError(f"Invalid redundancy pattern \"{advanced_redundancy}\".")
+                raise InvalidAdvancedRedundancyModeError(advanced_redundancy)
 
     @staticmethod
     def get_redundancy_neighbors(index: int, reconstructed_data: bytearray, input_data: bytes,
@@ -425,7 +427,7 @@ class Pattern:
         :return: The hash of the bytearray
         """
         if not self.hash_check:
-            raise ValueError("Hashing is disabled for this pattern.")
+            raise ShouldNotComputeHashError()
 
         if isinstance(self.hash_check, bool) and self.hash_check:
             hash_algorithm = 'sha256'
@@ -433,10 +435,10 @@ class Pattern:
             hash_algorithm = self.hash_check.lower()
 
         if hash_algorithm == "none":
-            raise ValueError("Hashing is disabled for this pattern.")
+            raise ShouldNotComputeHashError()
 
         if hash_algorithm not in hashlib.algorithms_available:
-            raise ValueError(f"Invalid hash algorithm \"{self.hash_check}\".")
+            raise InvalidHashAlgorithmError(hash_algorithm)
 
         return hashlib.new(hash_algorithm, data).digest()
 

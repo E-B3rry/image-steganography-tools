@@ -5,6 +5,8 @@ from typing import Union
 
 # Project modules
 from .base import BaseSteganography
+from .exceptions import DataSizeTooLargeError, UnsupportedTypeForParameterError, RequiredParameterMissingError, NoImageLoadedError, \
+    NoPatternLoadedError
 from .pattern import Pattern
 from .utils import get_image_pixels, create_image_from_pixels, ranges_overlap
 from .log_config import get_logger
@@ -99,8 +101,7 @@ class Encoder(BaseSteganography):
         data = self.pattern.apply_redundancy(data)
 
         if not self._validate_data_after_pattern_applied(data):
-            raise ValueError(f"Data size exceeds available capacity ({len(data)}/{self.available_bytes_for_data()} bytes), "
-                             f"try using a different pattern or increasing compression rate if possible.")
+            raise DataSizeTooLargeError(len(data), self.available_bytes_for_data())
 
         header_added_offset = 0
         # If header is enabled, accordingly generate the header
@@ -201,7 +202,7 @@ class Encoder(BaseSteganography):
             elif isinstance(data, (bytes, bytearray)):
                 data_type = 2
             else:
-                raise ValueError("Data must be a string, bytes, or bytearray.")
+                raise UnsupportedTypeForParameterError("data", data, (str, bytes, bytearray))
         elif file is not None:
             if isinstance(file, str):
                 data_type = 1
@@ -217,9 +218,9 @@ class Encoder(BaseSteganography):
                 data = file.read()
                 data = file_name.encode(self.encoding) + data
             else:
-                raise ValueError("File path must be a string.")
+                raise UnsupportedTypeForParameterError("file", file, (str, io.BytesIO))
         else:
-            raise ValueError("No data or file path provided.")
+            raise RequiredParameterMissingError("data or file_path")
 
         return bytes([data_type]) + data
 
@@ -232,14 +233,14 @@ class Encoder(BaseSteganography):
                 if isinstance(image, Image.Image):
                     self.image = kwargs.get("image")
                 else:
-                    raise ValueError("Image must be a PIL.Image.Image object.")
+                    raise UnsupportedTypeForParameterError("image", image, Image.Image)
             elif input_path:
                 if isinstance(input_path, str):
                     self.image = self._perform_load_image(input_path)
                 else:
-                    raise ValueError("Input path must be a string.")
+                    raise UnsupportedTypeForParameterError("input_path", input_path, str)
             else:
-                raise ValueError("No image loaded, use load_image() or pass the image as a keyword argument.")
+                raise NoImageLoadedError()
 
         pattern: Pattern = kwargs.get("pattern", None)
         if not self.pattern or pattern:
@@ -247,9 +248,9 @@ class Encoder(BaseSteganography):
                 if isinstance(pattern, Pattern):
                     self.load_pattern(pattern)
                 else:
-                    raise ValueError("Pattern must be a Pattern object.")
+                    raise UnsupportedTypeForParameterError("pattern", pattern, Pattern)
             else:
-                raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
+                raise NoPatternLoadedError()
 
         if self.image.filename:
             output_path = kwargs.get("output_path", f"{self.image.filename.split('.')[0]}_encoded.{self.image.filename.split('.')[1]}")
