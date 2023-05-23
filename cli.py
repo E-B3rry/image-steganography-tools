@@ -101,12 +101,6 @@ def main():
             if not (args.data or args.data_file):
                 parser.error("Either --data or --data-file must be provided for encoding")
 
-            if args.data_file:
-                with open(args.data_file, "rb") as file:
-                    data = file.read()
-            else:
-                data = args.data
-
             encoder = Encoder(pattern=pattern)
             encoder.load_image(args.input_image)
             encoder.process(data=args.data, file=args.data_file, output_path=args.output_image)

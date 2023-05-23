@@ -1,5 +1,6 @@
 # Internal modules
-
+from . import DataIntegrityCheckFailedError, InvalidDataTypeEncounteredDecodingError, UnsupportedTypeForParameterError, NoImageLoadedError, \
+    NoPatternLoadedError
 # Project modules
 from .base import BaseSteganography
 from .pattern import Pattern
@@ -153,7 +154,7 @@ class Decoder(BaseSteganography):
         if pattern_data["hash_check"]:
             data_bytes, data_hash = data_bytes[:-32], data_bytes[-32:]
             if self.pattern.compute_hash(data_bytes) != data_hash:
-                raise ValueError("Data integrity check failed")
+                raise DataIntegrityCheckFailedError()
 
         # data = data_bytes.decode(self.encoding)
 
@@ -174,7 +175,7 @@ class Decoder(BaseSteganography):
         elif data_type == 2:
             return data_bytes
         else:
-            raise ValueError("Invalid data type encountered during decoding.")
+            raise InvalidDataTypeEncounteredDecodingError()
 
     def process(self, **kwargs) -> str:
         file_path: str = kwargs.get("file_path", None)
@@ -188,18 +189,18 @@ class Decoder(BaseSteganography):
                 if isinstance(file_path, str):
                     self.image = self._perform_load_image(file_path)
                 else:
-                    raise ValueError("File path must be a string.")
+                    raise UnsupportedTypeForParameterError("file_path", file_path, str)
             else:
-                raise ValueError("No image loaded, use load_image() or pass the file_path as a keyword argument.")
+                raise NoImageLoadedError()
 
         if not self.pattern or pattern:
             if pattern:
                 if isinstance(pattern, Pattern):
                     self.load_pattern(pattern)
                 else:
-                    raise ValueError("Pattern must be a Pattern object.")
+                    raise UnsupportedTypeForParameterError("pattern", pattern, Pattern)
             else:
-                raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
+                raise NoPatternLoadedError()
 
         pixels = get_image_pixels(self.image)
         data_bytes = self.extract_data(pixels, data_length=data_length, enforce_provided_pattern=enforce_provided_pattern)
