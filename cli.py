@@ -5,9 +5,6 @@ import argparse
 from IST import Encoder, Decoder, Pattern, version
 
 
-# TODO: Support files in the CLI
-
-
 def add_pattern_arguments(parser):
     pattern_group = parser.add_argument_group("pattern options")
     pattern_group.add_argument("--offset", type=int, default=0,
@@ -112,7 +109,7 @@ def main():
 
             encoder = Encoder(pattern=pattern)
             encoder.load_image(args.input_image)
-            encoder.process(data=data, output_path=args.output_image)
+            encoder.process(data=args.data, file=args.data_file, output_path=args.output_image)
             print(f"Data encoded into {args.output_image}")
 
         elif args.command == "decode":

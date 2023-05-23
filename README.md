@@ -41,7 +41,9 @@ pattern = Pattern(
     channels="RGBA",
     bit_frequency=1,
     byte_spacing=2,
-    redundancy=1,
+    advanced_redundancy="reed_solomon",
+    advanced_redundancy_correction_factor=0.1,
+    repetitive_redundancy=1,
     hash_check=True,
 )
 ```
@@ -49,6 +51,7 @@ pattern = Pattern(
 To encode data into an image:
 
 ```python
+# To encode data into an image
 encoder = Encoder()
 
 # Load an image and pattern
@@ -70,7 +73,7 @@ decoder.load_pattern(pattern)
 
 # Extract the hidden data
 decoded_data = decoder.process()
-    
+
 print(decoded_data)
 ```
 
@@ -81,8 +84,15 @@ You can customize the encoding and decoding process by modifying the pattern par
 - `channels`: The color channels to use for encoding (e.g., "auto", "all", "RGBA", "RGB", "A")
 - `bit_frequency`: The number of least significant bits to use for encoding (1-8)
 - `byte_spacing`: The spacing between encoded bytes in the image (1-x)
-- `redundancy`: The number of times each bit is repeated for error correction (odd numbers recommended)
+- `advanced_redundancy`: The advanced redundancy algorithm to use for error correction (e.g., "reed_solomon", "hamming", "none")
+- `advanced_redundancy_correction_factor`: The correction factor for the advanced redundancy algorithm (0-1)
+- `repetitive_redundancy`: The number of times each byte is repeated for error correction (odd numbers recommended)
+- `repetitive_redundancy_mode`: The mode for applying repetitive redundancy (e.g., "byte_per_byte", "block")
 - `hash_check`: Whether to include a hash for data integrity checking (True/False/Other)
+- `header_enabled`: Whether to enable the header for storing pattern information (True/False)
+- `header_channels`: The color channels to use for encoding the header (e.g., "auto", "all", "RGBA", "RGB", "A")
+- `header_bit_frequency`: The number of least significant bits to use for encoding the header (1-8)
+- `header_byte_spacing`: The spacing between encoded bytes in the header (1-x)
 
 For example, to create a pattern with higher redundancy and no hash check:
 
@@ -91,8 +101,15 @@ pattern = Pattern(
     channels="RGBA",
     bit_frequency=1,
     byte_spacing=2,
-    redundancy=3,
+    advanced_redundancy="reed_solomon",
+    advanced_redundancy_correction_factor=0.1,
+    repetitive_redundancy=3,
+    repetitive_redundancy_mode="byte_per_byte",
     hash_check=False,
+    header_enabled=True,
+    header_channels="RGBA",
+    header_bit_frequency=1,
+    header_byte_spacing=2,
 )
 ```
 

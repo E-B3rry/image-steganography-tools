@@ -1,4 +1,6 @@
 # Internal modules
+import io
+import os
 from typing import Union
 
 # Project modules
@@ -21,7 +23,7 @@ Classes and Methods:
     - available_bytes_for_data(self): Returns the number of available bytes for data based on the loaded pattern.
     - apply_pattern(self, pixels: list[tuple[int, ...], ...], data: bytes): Applies the encoding pattern to the given pixel values and hides the data.
     - encode_data(self, pixels: list[int | tuple[int, ...], ...], data: Union[bytes, bytearray], channels: str, bit_frequency: int, byte_spacing: int, offset: int = 0): Encodes the data into the given pixel values based on the specified parameters.
-    - process(self, **kwargs): Main method that loads the image and pattern (if not already loaded), hides the data, and saves the processed image.
+    - process(self, **kwargs): Main method that loads the image and pattern (if not already loaded), hides the data, and saves the processed image. Accepts image and pattern as keyword arguments.
 
 Usage:
 To use the Encoder module, create an Encoder object and load an image and pattern. Then, call the process() method to hide the data and save the processed image. For example:
@@ -191,6 +193,36 @@ class Encoder(BaseSteganography):
 
         return encoded_pixels, last_pixel - offset
 
+    def _prepare_data(self, data, file):
+        if data is not None:
+            if isinstance(data, str):
+                data_type = 0
+                data = data.encode(self.encoding)
+            elif isinstance(data, (bytes, bytearray)):
+                data_type = 2
+            else:
+                raise ValueError("Data must be a string, bytes, or bytearray.")
+        elif file is not None:
+            if isinstance(file, str):
+                data_type = 1
+                file_name = os.path.basename(file)
+                file_name = file_name[:64].ljust(64, '\0')
+                with open(file, 'rb') as file_handler:
+                    data = file_handler.read()
+                data = file_name.encode(self.encoding) + data
+            elif isinstance(file, io.BytesIO):
+                data_type = 1
+                file_name = file.name
+                file_name = file_name[:64].ljust(64, '\0')
+                data = file.read()
+                data = file_name.encode(self.encoding) + data
+            else:
+                raise ValueError("File path must be a string.")
+        else:
+            raise ValueError("No data or file path provided.")
+
+        return bytes([data_type]) + data
+
     def process(self, **kwargs) -> None:
         image: Image = kwargs.get("image", None)
         input_path: str = kwargs.get("input_path", None)
@@ -225,8 +257,9 @@ class Encoder(BaseSteganography):
             output_path = kwargs.get("output_path", f"ist_encoded.{self.image.format.lower()}")
 
         data = kwargs.get("data", None)
+        file = kwargs.get("file", None)
 
-        data = data.encode(self.encoding) if isinstance(data, str) else data
+        data = self._prepare_data(data, file)
 
         pixels = get_image_pixels(self.image)
         encoded_pixels = self.apply_pattern(pixels, data)

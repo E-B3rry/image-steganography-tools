@@ -45,7 +45,7 @@ eel.init("web")
 
 
 @eel.expose
-def encode_data(input_image, output_image, data, pattern):
+def encode_data(input_image, output_image, data, file_name, pattern):
     with main_lock:
         try:
             input_image_content = base64.b64decode(input_image.split(',')[1])
@@ -54,7 +54,13 @@ def encode_data(input_image, output_image, data, pattern):
 
             encoder = Encoder(image=input_image_pil)
             encoder.load_pattern(Pattern.from_dict(pattern))
-            encoder.process(data=data, output_path=output_image)
+            if isinstance(data, str) and data.startswith("data:"):
+                data_content = base64.b64decode(data.split(',')[1])
+                data_file = io.BytesIO(data_content)
+                data_file.name = file_name  # Set the name attribute for the io.BytesIO object
+                encoder.process(file=data_file, output_path=output_image)
+            else:
+                encoder.process(data=data, output_path=output_image)
             return f"Data encoded and saved to {output_image}"
         except Exception as e:
             return f"Error while encoding: {e}"
@@ -79,6 +85,6 @@ def decode_data(input_image, pattern, enforce_provided_pattern, data_length):
             return f"Error while decoding: {e}"
 
 
-eel.start('index.html', size=(1200, 600))
+eel.start('index.html', size=(1200, 700))
 
 sys.exit()

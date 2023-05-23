@@ -10,10 +10,19 @@ async function encode() {
     const outputImageName = document.getElementById("output-image").value;
     const outputFormat = document.getElementById("output-format").value;
     const outputImage = outputImageName + '.' + outputFormat;
-    const data = document.getElementById("data-input").value;
+    const dataInput = document.getElementById("data-input").value;
+    const dataFile = document.getElementById("data-file").files[0];
+    let data = null;
+    let fileName = null;
+    if (dataFile) {
+        data = await fileToBase64(dataFile);
+        fileName = dataFile.name;
+    } else {
+        data = dataInput;
+    }
     const pattern = getPattern();
 
-    const result = await eel.encode_data(inputImage, outputImage, data, pattern)();
+    const result = await eel.encode_data(inputImage, outputImage, data, fileName, pattern)();
     document.getElementById("console-output").innerHTML = result;
 
     enableControls();

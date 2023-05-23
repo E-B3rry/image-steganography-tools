@@ -19,7 +19,7 @@ Classes and Methods:
     - load_pattern(self, pattern: Pattern): Loads a Pattern object for decoding.
     - decode_data(self, pixels: list[tuple[int, ...], ...], data_length: int, channels: str, bit_frequency: int, byte_spacing: int, offset: int = 0): Decodes and extracts data from the given pixel values based on the specified parameters.
     - extract_data(self, pixels: list[tuple[int, ...], ...], data_length=None, enforce_provided_pattern=False): Extracts the hidden data from the given pixel values based on the loaded pattern and optional data_length parameter.
-    - process(self, **kwargs): Main method that loads the image and pattern (if not already loaded) and extracts the hidden data.
+    - process(self, **kwargs): Main method that loads the image and pattern (if not already loaded) and extracts the hidden data. Accepts optional keyword arguments for file_path, pattern, data_length, and enforce_provided_pattern.
 
 Usage:
 To use the Decoder module, create a Decoder object and load an image and pattern. Then, call the process() method to extract the hidden data. For example:
@@ -35,6 +35,10 @@ To use the Decoder module, create a Decoder object and load an image and pattern
 
     # Extract the hidden data
     hidden_data = decoder.process()
+
+Alternatively, you can pass the file_path and pattern as keyword arguments to the process() method:
+
+    hidden_data = decoder.process(file_path="path/to/image.png", pattern=Pattern())
 
 This module is part of the IST (Image Steganography Tools) library, which provides a comprehensive set of tools for hiding and extracting data within images.
 """
@@ -93,7 +97,7 @@ class Decoder(BaseSteganography):
 
         return data_bytes, last_pixel - offset
 
-    def extract_data(self, pixels: list[tuple[int, ...], ...], data_length=None, enforce_provided_pattern=False) -> str:
+    def extract_data(self, pixels: list[tuple[int, ...], ...], data_length=None, enforce_provided_pattern=False) -> bytes:
         pattern_data = self.pattern.generate_pattern(image_channels=self.image.mode)
 
         channels = pattern_data["channels"]
@@ -151,9 +155,26 @@ class Decoder(BaseSteganography):
             if self.pattern.compute_hash(data_bytes) != data_hash:
                 raise ValueError("Data integrity check failed")
 
-        data = data_bytes.decode(self.encoding)
+        # data = data_bytes.decode(self.encoding)
 
-        return data
+        return data_bytes
+
+    def _process_data(self, data_bytes):
+        data_type = int(data_bytes[0])
+        data_bytes = data_bytes[1:]
+
+        if data_type == 0:
+            return data_bytes.decode(self.encoding)
+        elif data_type == 1:
+            file_name = data_bytes[:64].decode(self.encoding).rstrip('\0')
+            file_data = data_bytes[64:]
+            with open(file_name, 'wb') as file:
+                file.write(file_data)
+            return f"File '{file_name}' has been extracted."
+        elif data_type == 2:
+            return data_bytes
+        else:
+            raise ValueError("Invalid data type encountered during decoding.")
 
     def process(self, **kwargs) -> str:
         file_path: str = kwargs.get("file_path", None)
@@ -181,5 +202,5 @@ class Decoder(BaseSteganography):
                 raise ValueError("No pattern loaded, use load_pattern() or pass the pattern as a keyword argument.")
 
         pixels = get_image_pixels(self.image)
-        data = self.extract_data(pixels, data_length=data_length, enforce_provided_pattern=enforce_provided_pattern)
-        return data
+        data_bytes = self.extract_data(pixels, data_length=data_length, enforce_provided_pattern=enforce_provided_pattern)
+        return self._process_data(data_bytes)
