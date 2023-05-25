@@ -3,10 +3,10 @@ import unittest
 import sys
 from pathlib import Path
 
-src_path = str(Path(__file__).resolve().parent.parent / 'IST')
+# Project modules
+src_path = str(Path(__file__).resolve().parent.parent / "IST")
 sys.path.insert(0, src_path)
 
-# Project modules
 from test_pattern import generate_test_patterns, filter_patterns  # noqa: E402
 from IST.encoder import Encoder  # noqa: E402
 from IST.decoder import Decoder  # noqa: E402
@@ -57,7 +57,7 @@ class TestEncoderDecoder(unittest.TestCase):
             for pattern in test_patterns:
                 count += 1
                 with self.subTest(img_format=img_format,
-                                  pattern=pattern.generate_pattern(image_channels=pattern.channels, data_length=len(data))):
+                                  pattern=pattern.generate_pattern(image_channels=pattern.channels)):
                     try:
                         # First, process the data using the pattern
                         encoder = Encoder()
@@ -87,7 +87,7 @@ class TestEncoderDecoder(unittest.TestCase):
                             decoded_data = ""
 
                         print(f"Test failed for image format: \"{img_format}\" and pattern:",
-                              f"{pattern.generate_pattern(image_channels=pattern.channels, data_length=len(data))}")
+                              f"{pattern.generate_pattern(image_channels=pattern.channels)}")
                         print(f"\nOriginal data (len={len(data)}): {data}")
                         print(f"Decoded data (len={len(decoded_data)}): {decoded_data[:len(data) * 2]}\n")
                         raise

@@ -1,16 +1,20 @@
+# Internal modules
 import unittest
 import sys
 import os
 from pathlib import Path
-from PIL import Image
 
-src_path = str(Path(__file__).resolve().parent.parent / 'IST')
+# Project modules
+src_path = str(Path(__file__).resolve().parent.parent / "IST")
 sys.path.insert(0, src_path)
 
 from IST.base import BaseSteganography  # noqa: E402
 from IST.pattern import Pattern  # noqa: E402
 from IST.exceptions import UnsupportedImageFormatError  # noqa: E402
 from IST.constants import currently_supported_formats  # noqa: E402
+
+# External modules
+from PIL import Image  # noqa: E402
 
 
 # Subclass of BaseSteganography for testing purposes
