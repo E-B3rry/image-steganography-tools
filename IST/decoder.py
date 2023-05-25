@@ -1,10 +1,11 @@
 # Internal modules
-from . import DataIntegrityCheckFailedError, InvalidDataTypeEncounteredDecodingError, UnsupportedTypeForParameterError, NoImageLoadedError, \
-    NoPatternLoadedError
+
 # Project modules
 from .base import BaseSteganography
 from .pattern import Pattern
 from .utils import get_image_pixels, ranges_overlap
+from .exceptions import DataIntegrityCheckFailedError, InvalidDataTypeEncounteredDecodingError, UnsupportedTypeForParameterError, NoImageLoadedError, \
+    NoPatternLoadedError
 
 # External modules
 from PIL import Image

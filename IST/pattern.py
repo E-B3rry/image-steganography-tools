@@ -130,7 +130,7 @@ class Pattern:
             channels = self.channels.upper()
 
         if not all([channel in image_channels for channel in channels]):
-            InvalidChannelsError(channels, image_channels, initial=self.channels)
+            raise InvalidChannelsError(channels, image_channels, initial=self.channels)
 
         # Decide which channels the header should be written in.
         self.header_channels = self.header_channels.lower()
