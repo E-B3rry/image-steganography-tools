@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from PIL import Image
 
-src_path = str(Path(__file__).resolve().parent.parent / 'IST')
+src_path = str(Path(__file__).resolve().parent.parent / "IST")
 sys.path.insert(0, src_path)
 
 from IST.base import BaseSteganography  # noqa: E402

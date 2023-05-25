@@ -3,7 +3,7 @@ import unittest
 import sys
 from pathlib import Path
 
-src_path = str(Path(__file__).resolve().parent.parent / 'IST')
+src_path = str(Path(__file__).resolve().parent.parent / "IST")
 sys.path.insert(0, src_path)
 
 from IST.pattern import Pattern  # noqa: E402
