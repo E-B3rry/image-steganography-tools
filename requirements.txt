@@ -1,4 +1,4 @@
-Pillow==10.0.1
+Pillow==10.2.0
 l10n~=0.1.0
 reedsolo==2.0.13
 Eel~=0.16.0
